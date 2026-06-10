@@ -35,7 +35,7 @@ const features = [
 
 const steps = [
   { num: "01", title: "Upload your report", desc: "CSV, Excel, or PDF — any format your team already uses." },
-  { num: "02", title: "AI analyzes instantly", desc: "GPT-4o reads every row, flags anomalies, and scores risks in seconds." },
+  { num: "02", title: "AI analyzes instantly", desc: "Vertical AI reads every row, flags anomalies, and scores industry-specific risks in seconds." },
   { num: "03", title: "Act on insights", desc: "Clear recommendations delivered — no data science background required." },
 ];
 
@@ -169,6 +169,115 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Kai-Fu Lee AI Formula */}
+      <section className="px-6 py-20 border-t border-white/8">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-12">
+            <p className="text-sm uppercase tracking-widest text-emerald-400/70 mb-3">The AI Formula</p>
+            <h2 className="text-3xl md:text-4xl font-bold">Why vertical AI beats general AI</h2>
+            <p className="mt-4 text-white/50 max-w-2xl mx-auto">
+              AI value compounds multiplicatively — not additively. A generalist AI is limited in every factor.
+              OpsOracle AI maximizes all four by focusing exclusively on industrial operations.
+            </p>
+          </div>
+          <div className="card mb-8 text-center py-8">
+            <p className="text-white/40 text-sm mb-3 font-mono uppercase tracking-widest">Vertical AI Value Formula</p>
+            <div className="flex flex-wrap items-center justify-center gap-2 text-lg md:text-2xl font-bold">
+              <span className="text-white">Value</span>
+              <span className="text-white/30">=</span>
+              <span className="text-emerald-400">Domain Expertise</span>
+              <span className="text-white/30">×</span>
+              <span className="text-blue-400">Data Quality</span>
+              <span className="text-white/30">×</span>
+              <span className="text-yellow-400">Model Confidence</span>
+              <span className="text-white/30">×</span>
+              <span className="text-purple-400">Industry Depth</span>
+            </div>
+            <p className="mt-4 text-white/30 text-sm">
+              Each factor multiplies the others. OpsOracle AI scores every analysis on all four dimensions.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-4 gap-4">
+            {[
+              {
+                label: "Domain Expertise",
+                color: "text-emerald-400",
+                border: "border-emerald-500/20",
+                bg: "bg-emerald-500/5",
+                desc: "Industry-specific signals detected in your data — logistics, manufacturing, warehouse or supply chain terminology that shapes the AI's analysis.",
+              },
+              {
+                label: "Data Quality",
+                color: "text-blue-400",
+                border: "border-blue-500/20",
+                bg: "bg-blue-500/5",
+                desc: "Row count, structure density and column variety. More structured operational data = higher confidence in risk scores.",
+              },
+              {
+                label: "Model Confidence",
+                color: "text-yellow-400",
+                border: "border-yellow-500/20",
+                bg: "bg-yellow-500/5",
+                desc: "How decisive the AI's risk prediction is. Extreme scores (very high or very low risk) reflect clearer signal patterns in your data.",
+              },
+              {
+                label: "Industry Depth",
+                color: "text-purple-400",
+                border: "border-purple-500/20",
+                bg: "bg-purple-500/5",
+                desc: "Vertical-specific calibration vs generic analysis. OpsOracle AI uses industry benchmarks from all users to improve every prediction.",
+              },
+            ].map((f) => (
+              <div key={f.label} className={`rounded-xl border ${f.border} ${f.bg} p-5`}>
+                <div className={`text-sm font-semibold mb-2 ${f.color}`}>{f.label}</div>
+                <p className="text-white/55 text-xs leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Industry verticals */}
+      <section className="px-6 py-20 border-t border-white/8">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-12">
+            <p className="text-sm uppercase tracking-widest text-emerald-400/70 mb-3">Industry Solutions</p>
+            <h2 className="text-3xl md:text-4xl font-bold">Deep expertise, not a generalist chatbot</h2>
+            <p className="mt-4 text-white/50 max-w-xl mx-auto">
+              Each vertical gets AI engines calibrated on domain-specific signals — not generic pattern matching.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-5">
+            {[
+              {
+                href: "/logistics-ai",
+                label: "Logistics AI",
+                desc: "Shipment delay prediction, carrier SLA scoring, route cost anomaly detection and last-mile risk analysis.",
+                kpi: "Reduce SLA breaches",
+              },
+              {
+                href: "/manufacturing-ai",
+                label: "Manufacturing AI",
+                desc: "OEE risk scoring, downtime root cause detection, throughput bottleneck analysis and production cost impact.",
+                kpi: "Cut unplanned downtime",
+              },
+              {
+                href: "/warehouse-ai",
+                label: "Warehouse AI",
+                desc: "Stockout risk scoring, slow-mover detection, reorder gap alerts and order fill rate risk analysis.",
+                kpi: "Prevent inventory crises",
+              },
+            ].map((v) => (
+              <Link key={v.href} href={v.href} className="card hover:border-emerald-500/30 hover:bg-white/8 transition-all group">
+                <div className="text-xs text-emerald-400/70 font-mono uppercase tracking-wider mb-2">{v.kpi}</div>
+                <h3 className="font-semibold text-base mb-2 group-hover:text-emerald-400 transition-colors">{v.label} →</h3>
+                <p className="text-white/55 text-sm leading-relaxed">{v.desc}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-white/8 px-6 py-10">
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -177,6 +286,9 @@ export default function Home() {
           </span>
           <p className="text-sm text-white/30">© {new Date().getFullYear()} OpsOracle AI. All rights reserved.</p>
           <div className="flex gap-6 text-sm text-white/40">
+            <Link href="/logistics-ai" className="hover:text-white transition-colors">Logistics</Link>
+            <Link href="/manufacturing-ai" className="hover:text-white transition-colors">Manufacturing</Link>
+            <Link href="/warehouse-ai" className="hover:text-white transition-colors">Warehouse</Link>
             <Link href="/login" className="hover:text-white transition-colors">Login</Link>
             <Link href="/register" className="hover:text-white transition-colors">Register</Link>
           </div>

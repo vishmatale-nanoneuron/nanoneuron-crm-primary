@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Nav from "@/components/Nav";
 import { getToken } from "@/lib/api";
 
@@ -12,6 +13,10 @@ type Insight = {
   bottleneck_summary: string;
   executive_summary: string;
   recommendations: string;
+  industry_detected?: string;
+  cost_impact_usd?: number;
+  vertical_ai_score?: number;
+  annual_savings_usd?: number;
 };
 
 function RiskBar({ value, label }: { value: number; label: string }) {
@@ -28,10 +33,15 @@ function RiskBar({ value, label }: { value: number; label: string }) {
 }
 
 export default function Upload() {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [insight, setInsight] = useState<Insight | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!getToken()) router.push("/login");
+  }, [router]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,7 +75,41 @@ export default function Upload() {
 
         {insight && (
           <section className="mt-10">
-            <h2 className="mb-6 text-2xl font-semibold">AI Risk Analysis</h2>
+            <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+              <h2 className="text-2xl font-semibold">AI Risk Analysis</h2>
+              <div className="flex items-center gap-3 flex-wrap">
+                {insight.industry_detected && (
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400 capitalize">
+                    {insight.industry_detected.replace("_", " ")} operations
+                  </span>
+                )}
+                {insight.vertical_ai_score != null && (
+                  <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-400">
+                    Vertical AI Score: {insight.vertical_ai_score}/100
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Kai-Fu Lee ROI panel */}
+            {(insight.cost_impact_usd != null || insight.annual_savings_usd != null) && (
+              <div className="mb-6 grid gap-4 md:grid-cols-2">
+                {insight.cost_impact_usd != null && insight.cost_impact_usd > 0 && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-5 py-4">
+                    <p className="text-xs text-red-400/70 uppercase tracking-wider mb-1">Cost at risk (current period)</p>
+                    <p className="text-2xl font-bold text-red-400">${insight.cost_impact_usd.toLocaleString()}</p>
+                    <p className="text-xs text-white/40 mt-1">Estimated from detected operational issues</p>
+                  </div>
+                )}
+                {insight.annual_savings_usd != null && insight.annual_savings_usd > 0 && (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-5 py-4">
+                    <p className="text-xs text-emerald-400/70 uppercase tracking-wider mb-1">Estimated annual savings if fixed</p>
+                    <p className="text-2xl font-bold text-emerald-400">${insight.annual_savings_usd.toLocaleString()}</p>
+                    <p className="text-xs text-white/40 mt-1">AI-predicted recurrence savings (Kai-Fu Lee ROI model)</p>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="grid gap-6 md:grid-cols-3">
               <RiskBar value={insight.risk_score} label="Overall Risk Score" />
               <RiskBar value={insight.delay_probability} label="Delay Probability" />

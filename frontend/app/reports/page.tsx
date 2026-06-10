@@ -1,18 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Nav from "@/components/Nav";
-import { api } from "@/lib/api";
+import { api, getToken } from "@/lib/api";
 import Link from "next/link";
 
 type Report = { id: string; file_name: string; rows_count: number; created_at: string };
 
 export default function Reports() {
+  const router = useRouter();
   const [reports, setReports] = useState<Report[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api("/reports").then(setReports).catch(() => setError("Please login to view reports."));
-  }, []);
+    if (!getToken()) { router.push("/login"); return; }
+    api("/reports").then(setReports).catch(() => setError("Failed to load reports."));
+  }, [router]);
 
   return (
     <>

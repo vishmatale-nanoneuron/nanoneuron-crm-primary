@@ -6,9 +6,11 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
     OPENAI_API_KEY: str = ""
+    GROQ_API_KEY: str = ""
     ENVIRONMENT: str = "production"
 
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()
