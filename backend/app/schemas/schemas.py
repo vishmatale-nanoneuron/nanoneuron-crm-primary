@@ -53,10 +53,20 @@ class InsightResponse(BaseModel):
     cost_impact_usd: int | None
     vertical_ai_score: int | None
     annual_savings_usd: int | None
+    # Kai-Fu Lee: sub-vertical, feedback loop, expert trust, flywheel
+    sub_vertical: str | None = None
+    resolved_at: datetime | None = None
+    resolution_note: str | None = None
+    expert_reviewed: bool = False
+    benchmark_count: int | None = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class ResolveRequest(BaseModel):
+    note: str = ""
 
 
 class BenchmarkResponse(BaseModel):

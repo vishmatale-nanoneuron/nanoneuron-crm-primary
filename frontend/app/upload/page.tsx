@@ -20,6 +20,10 @@ type Insight = {
   cost_impact_usd?: number;
   vertical_ai_score?: number;
   annual_savings_usd?: number;
+  sub_vertical?: string | null;
+  benchmark_count?: number | null;
+  expert_reviewed?: boolean;
+  resolved_at?: string | null;
 };
 
 type Usage = { plan_tier: string; used: number; limit: number | null; unlimited: boolean; remaining: number | null };
@@ -209,6 +213,19 @@ export default function Upload() {
 
         {insight && (
           <section className="mt-10">
+            {/* Data flywheel — Kai-Fu Lee principle #1 */}
+            {(insight.benchmark_count ?? 0) > 0 && (
+              <div className="mb-5 flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/8 px-5 py-3">
+                <span className="text-blue-400 text-base shrink-0">◉</span>
+                <p className="text-sm text-blue-300">
+                  Your data now contributes to the{" "}
+                  <span className="font-semibold capitalize">{(insight.industry_detected || "operations").replace("_", " ")}</span>{" "}
+                  benchmark —{" "}
+                  <span className="font-semibold">{insight.benchmark_count} report{insight.benchmark_count !== 1 ? "s" : ""}</span>{" "}
+                  analyzed across operations teams.
+                </p>
+              </div>
+            )}
             <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
               <div>
                 <h2 className="text-2xl font-semibold">AI Risk Analysis</h2>
@@ -220,6 +237,11 @@ export default function Upload() {
                 {insight.industry_detected && (
                   <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400 capitalize">
                     {insight.industry_detected.replace("_", " ")} operations
+                  </span>
+                )}
+                {insight.sub_vertical && insight.sub_vertical !== "general" && (
+                  <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs text-purple-400 capitalize">
+                    {insight.sub_vertical.replace("_", " ")}
                   </span>
                 )}
                 {insight.vertical_ai_score != null && (

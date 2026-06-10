@@ -2,11 +2,12 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.config import settings
 from app.models.models import Report, Insight, User, IndustryBenchmark
-from app.schemas.schemas import ReportResponse, InsightResponse
+from app.schemas.schemas import ReportResponse, InsightResponse, ResolveRequest
 from app.api.deps import get_current_user
 from app.services.file_parser import parse_uploaded_file
-from app.services.ai_service import analyze_operations
+from app.services.ai_service import analyze_operations, classify_sub_vertical
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -76,7 +77,8 @@ def _check_daily_limit(user: User, db: Session) -> None:
         )
 
 
-def _update_benchmark(db: Session, industry: str, risk: int, delay: int, inventory: int) -> None:
+def _update_benchmark(db: Session, industry: str, risk: int, delay: int, inventory: int) -> int:
+    """Update anonymized industry benchmark and return the new report_count."""
     bench = db.query(IndustryBenchmark).filter(IndustryBenchmark.industry == industry).first()
     if bench:
         bench.sum_risk_score += risk
@@ -92,6 +94,7 @@ def _update_benchmark(db: Session, industry: str, risk: int, delay: int, invento
             report_count=1,
         )
         db.add(bench)
+    return bench.report_count
 
 
 @router.get("/demo", response_model=InsightResponse)
@@ -103,6 +106,8 @@ def demo_analysis(
     industry = industry if industry in DEMO_SAMPLES else "logistics"
     text = DEMO_SAMPLES[industry]
     result = analyze_operations(text)
+    detected_industry = result.get("industry_detected", industry)
+    sub_vertical = result.get("sub_vertical") or classify_sub_vertical(detected_industry, text)
 
     report = Report(
         user_id=user.id,
@@ -110,11 +115,18 @@ def demo_analysis(
         file_type="text/csv",
         extracted_text=text,
         rows_count=len(text.strip().split("\n")) - 1,
-        industry=result.get("industry_detected", industry),
+        industry=detected_industry,
     )
     db.add(report)
     db.commit()
     db.refresh(report)
+
+    benchmark_count = _update_benchmark(
+        db, detected_industry,
+        int(result.get("risk_score", 0)),
+        int(result.get("delay_probability", 0)),
+        int(result.get("inventory_risk", 0)),
+    )
 
     insight = Insight(
         report_id=report.id,
@@ -124,13 +136,14 @@ def demo_analysis(
         bottleneck_summary=result.get("bottleneck_summary", ""),
         executive_summary=result.get("executive_summary", ""),
         recommendations=result.get("recommendations", ""),
-        industry_detected=result.get("industry_detected", industry),
+        industry_detected=detected_industry,
+        sub_vertical=sub_vertical,
         cost_impact_usd=int(result.get("cost_impact_usd", 0)),
         vertical_ai_score=int(result.get("vertical_ai_score", 0)),
         annual_savings_usd=int(result.get("annual_savings_usd", 0)),
+        benchmark_count=benchmark_count,
     )
     db.add(insight)
-    _update_benchmark(db, industry, insight.risk_score, insight.delay_probability, insight.inventory_risk)
     db.commit()
     db.refresh(insight)
     return insight
@@ -161,6 +174,7 @@ async def upload_report(
 
     result = analyze_operations(text)
     industry = result.get("industry_detected", "operations")
+    sub_vertical = result.get("sub_vertical") or classify_sub_vertical(industry, text)
 
     report = Report(
         user_id=user.id,
@@ -174,6 +188,13 @@ async def upload_report(
     db.commit()
     db.refresh(report)
 
+    benchmark_count = _update_benchmark(
+        db, industry,
+        int(result.get("risk_score", 0)),
+        int(result.get("delay_probability", 0)),
+        int(result.get("inventory_risk", 0)),
+    )
+
     insight = Insight(
         report_id=report.id,
         risk_score=int(result.get("risk_score", 0)),
@@ -183,17 +204,13 @@ async def upload_report(
         executive_summary=result.get("executive_summary", ""),
         recommendations=result.get("recommendations", ""),
         industry_detected=industry,
+        sub_vertical=sub_vertical,
         cost_impact_usd=int(result.get("cost_impact_usd", 0)),
         vertical_ai_score=int(result.get("vertical_ai_score", 0)),
         annual_savings_usd=int(result.get("annual_savings_usd", 0)),
+        benchmark_count=benchmark_count,
     )
     db.add(insight)
-
-    _update_benchmark(
-        db, industry,
-        insight.risk_score, insight.delay_probability, insight.inventory_risk,
-    )
-
     db.commit()
     db.refresh(insight)
     return insight
@@ -219,3 +236,45 @@ def report_insights(report_id: str, db: Session = Depends(get_db), user: User = 
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     return db.query(Insight).filter(Insight.report_id == report.id).order_by(Insight.created_at.desc()).all()
+
+
+@router.post("/{report_id}/insights/{insight_id}/resolve", response_model=InsightResponse)
+def resolve_insight(
+    report_id: str,
+    insight_id: str,
+    body: ResolveRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Kai-Fu Lee Action-Feedback Loop: mark an insight as resolved."""
+    report = db.query(Report).filter(Report.id == report_id, Report.user_id == user.id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    insight = db.query(Insight).filter(Insight.id == insight_id, Insight.report_id == report.id).first()
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    insight.resolved_at = datetime.utcnow()
+    insight.resolution_note = body.note or None
+    db.commit()
+    db.refresh(insight)
+    return insight
+
+
+@router.post("/{report_id}/insights/{insight_id}/mark-reviewed", response_model=InsightResponse)
+def mark_expert_reviewed(
+    report_id: str,
+    insight_id: str,
+    secret: str,
+    db: Session = Depends(get_db),
+):
+    """Enterprise: admin marks insight as expert-reviewed (requires ADMIN_SECRET)."""
+    admin_secret = getattr(settings, "ADMIN_SECRET", "")
+    if not admin_secret or secret != admin_secret:
+        raise HTTPException(status_code=403, detail="Invalid secret")
+    insight = db.query(Insight).filter(Insight.id == insight_id, Insight.report_id == report_id).first()
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    insight.expert_reviewed = True
+    db.commit()
+    db.refresh(insight)
+    return insight

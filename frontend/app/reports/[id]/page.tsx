@@ -12,7 +12,9 @@ type Insight = {
   id: string; risk_score: number; delay_probability: number; inventory_risk: number;
   bottleneck_summary: string; executive_summary: string; recommendations: string;
   industry_detected: string | null; cost_impact_usd: number | null;
-  vertical_ai_score: number | null; annual_savings_usd: number | null; created_at: string;
+  vertical_ai_score: number | null; annual_savings_usd: number | null;
+  sub_vertical: string | null; resolved_at: string | null; resolution_note: string | null;
+  expert_reviewed: boolean; benchmark_count: number | null; created_at: string;
 };
 
 function RiskBar({ value, label }: { value: number; label: string }) {
@@ -32,6 +34,20 @@ function RiskBar({ value, label }: { value: number; label: string }) {
   );
 }
 
+function SubVerticalLabel({ sub, industry }: { sub: string; industry: string }) {
+  if (!sub || sub === "general") return null;
+  const labels: Record<string, string> = {
+    last_mile: "Last Mile", ftl: "FTL", cold_chain: "Cold Chain", air_freight: "Air Freight",
+    discrete: "Discrete Mfg", process: "Process Mfg", automotive: "Automotive", pharma: "Pharma",
+    spare_parts: "Spare Parts", "3pl": "3PL", dark_store: "Dark Store",
+  };
+  return (
+    <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs text-purple-400 capitalize print:hidden">
+      {industry} › {labels[sub] || sub.replace("_", " ")}
+    </span>
+  );
+}
+
 export default function ReportDetail() {
   const params = useParams();
   const router = useRouter();
@@ -41,6 +57,9 @@ export default function ReportDetail() {
   const [insight, setInsight] = useState<Insight | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [resolving, setResolving] = useState(false);
+  const [resolveNote, setResolveNote] = useState("");
+  const [showResolveForm, setShowResolveForm] = useState(false);
 
   useEffect(() => {
     if (!getToken()) { router.push("/login"); return; }
@@ -56,8 +75,23 @@ export default function ReportDetail() {
       .finally(() => setLoading(false));
   }, [reportId, router]);
 
-  function handlePrint() {
-    window.print();
+  async function handleResolve() {
+    if (!insight) return;
+    setResolving(true);
+    try {
+      const res = await fetch(`${API}/reports/${reportId}/insights/${insight.id}/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ note: resolveNote }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setInsight(updated);
+        setShowResolveForm(false);
+      }
+    } finally {
+      setResolving(false);
+    }
   }
 
   if (loading) return (
@@ -86,6 +120,7 @@ export default function ReportDetail() {
   );
 
   const industry = insight?.industry_detected || report?.industry || "operations";
+  const isResolved = !!insight?.resolved_at;
 
   return (
     <>
@@ -102,6 +137,19 @@ export default function ReportDetail() {
                   {industry.replace("_", " ")} operations
                 </span>
               )}
+              {insight?.sub_vertical && (
+                <SubVerticalLabel sub={insight.sub_vertical} industry={industry} />
+              )}
+              {insight?.expert_reviewed && (
+                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-400 font-semibold">
+                  ✓ Reviewed by Expert
+                </span>
+              )}
+              {isResolved && (
+                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400 font-semibold">
+                  ✓ Resolved {insight!.resolved_at ? new Date(insight!.resolved_at).toLocaleDateString("en-IN") : ""}
+                </span>
+              )}
               {report?.rows_count != null && report.rows_count > 0 && (
                 <span className="text-white/40 text-sm">{report.rows_count} rows analyzed</span>
               )}
@@ -111,7 +159,7 @@ export default function ReportDetail() {
             </div>
           </div>
           <button
-            onClick={handlePrint}
+            onClick={() => window.print()}
             className="flex items-center gap-2 rounded-xl border border-white/15 px-5 py-2.5 text-sm font-medium hover:bg-white/5 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,6 +191,33 @@ export default function ReportDetail() {
           </div>
         ) : (
           <>
+            {/* Data flywheel banner — Kai-Fu Lee principle #1 */}
+            {(insight.benchmark_count ?? 0) > 0 && (
+              <div className="mb-6 flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/8 px-5 py-3 print:hidden">
+                <span className="text-blue-400 text-base">◉</span>
+                <p className="text-sm text-blue-300">
+                  Your data contributed to the <span className="font-semibold capitalize">{industry.replace("_", " ")}</span> benchmark —{" "}
+                  <span className="font-semibold">{insight.benchmark_count} report{insight.benchmark_count !== 1 ? "s" : ""}</span> analyzed across operations teams.
+                </p>
+              </div>
+            )}
+
+            {/* Resolution status banner */}
+            {isResolved && (
+              <div className="mb-6 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-5 py-3 print:hidden">
+                <span className="text-emerald-400 text-lg">✓</span>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-400">This report has been resolved</p>
+                  {insight.resolution_note && (
+                    <p className="text-xs text-white/50 mt-0.5">{insight.resolution_note}</p>
+                  )}
+                  <p className="text-xs text-white/30 mt-0.5">
+                    Resolved on {new Date(insight.resolved_at!).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* ROI panels */}
             {((insight.cost_impact_usd ?? 0) > 0 || (insight.annual_savings_usd ?? 0) > 0) && (
               <div className="mb-6 grid gap-4 md:grid-cols-2">
@@ -172,16 +247,21 @@ export default function ReportDetail() {
 
             {/* AI Analysis */}
             <div className="card space-y-6 print:border print:border-gray-200 print:bg-white print:shadow-none">
-              {insight.vertical_ai_score != null && (
-                <div className="flex items-center gap-2 pb-4 border-b border-white/10 print:border-gray-100">
+              <div className="flex items-center gap-2 pb-4 border-b border-white/10 print:border-gray-100 flex-wrap">
+                {insight.vertical_ai_score != null && (
                   <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-400 print:border-blue-200 print:bg-blue-50 print:text-blue-700">
                     Vertical AI Score: {insight.vertical_ai_score}/100
                   </span>
-                  <span className="text-white/30 text-xs print:text-gray-400">
-                    {insight.vertical_ai_score >= 70 ? "High confidence analysis" : insight.vertical_ai_score >= 40 ? "Medium confidence" : "Low signal in data"}
+                )}
+                <span className="text-white/30 text-xs print:text-gray-400">
+                  {insight.vertical_ai_score != null && (insight.vertical_ai_score >= 70 ? "High confidence analysis" : insight.vertical_ai_score >= 40 ? "Medium confidence" : "Low signal in data")}
+                </span>
+                {insight.expert_reviewed && (
+                  <span className="ml-auto rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-400 font-semibold">
+                    ✓ Reviewed by OpsOracle Expert
                   </span>
-                </div>
-              )}
+                )}
+              </div>
               <div>
                 <h3 className="font-semibold text-lg print:text-gray-900">Executive Summary</h3>
                 <p className="mt-2 text-white/70 leading-relaxed print:text-gray-700">{insight.executive_summary}</p>
@@ -192,12 +272,60 @@ export default function ReportDetail() {
               </div>
               <div>
                 <h3 className="font-semibold text-lg print:text-gray-900">Recommendations</h3>
-                <p className="mt-2 text-white/70 leading-relaxed print:text-gray-700">{insight.recommendations}</p>
+                <p className="mt-2 text-white/70 leading-relaxed whitespace-pre-line print:text-gray-700">{insight.recommendations}</p>
               </div>
             </div>
 
+            {/* Mark as Resolved — Kai-Fu Lee Action-Feedback Loop */}
+            {!isResolved && (
+              <div className="mt-6 card border-white/8 print:hidden">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <h3 className="font-semibold text-base">Mark as Resolved</h3>
+                    <p className="text-white/40 text-sm mt-1">
+                      Did your team act on this analysis? Mark it resolved to close the feedback loop.
+                    </p>
+                  </div>
+                  {!showResolveForm && (
+                    <button
+                      onClick={() => setShowResolveForm(true)}
+                      className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors shrink-0"
+                    >
+                      ✓ Mark Resolved
+                    </button>
+                  )}
+                </div>
+                {showResolveForm && (
+                  <div className="mt-4 space-y-3">
+                    <textarea
+                      value={resolveNote}
+                      onChange={e => setResolveNote(e.target.value)}
+                      placeholder="Optional: describe what action your team took..."
+                      rows={2}
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/25 focus:border-emerald-500 focus:outline-none resize-none"
+                    />
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleResolve}
+                        disabled={resolving}
+                        className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50"
+                      >
+                        {resolving ? "Saving..." : "Confirm Resolution"}
+                      </button>
+                      <button
+                        onClick={() => setShowResolveForm(false)}
+                        className="rounded-xl border border-white/15 px-5 py-2.5 text-sm hover:bg-white/5 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Print footer */}
-            <div className="hidden print:block mt-8 border-t border-gray-200 pt-4 text-xs text-gray-400 flex items-center justify-between">
+            <div className="hidden print:flex mt-8 border-t border-gray-200 pt-4 text-xs text-gray-400 items-center justify-between">
               <span>OpsOracle AI — Vertical AI for Industrial Operations</span>
               <span>nanoneuron.ai</span>
             </div>

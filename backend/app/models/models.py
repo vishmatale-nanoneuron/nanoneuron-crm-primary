@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Text, Integer, Float, BigInteger, ForeignKey, DateTime
+from sqlalchemy import Column, String, Text, Integer, BigInteger, Boolean, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -13,6 +13,8 @@ class User(Base):
     password_hash = Column(Text, nullable=False)
     company_name = Column(String(255), nullable=False)
     plan_tier = Column(String(20), default="free", server_default="free")
+    email_digest = Column(Boolean, default=True, server_default="true")
+    last_digest_sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     reports = relationship("Report", back_populates="user", cascade="all, delete")
     subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete")
@@ -46,6 +48,12 @@ class Insight(Base):
     cost_impact_usd = Column(Integer, default=0)
     vertical_ai_score = Column(Integer, default=0)
     annual_savings_usd = Column(Integer, default=0)
+    # Kai-Fu Lee principles: sub-vertical depth, feedback loop, expert trust, flywheel
+    sub_vertical = Column(String(50), nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+    resolution_note = Column(String(500), nullable=True)
+    expert_reviewed = Column(Boolean, default=False, server_default="false")
+    benchmark_count = Column(Integer, default=0, server_default="0")
     created_at = Column(DateTime, server_default=func.now())
     report = relationship("Report", back_populates="insights")
 

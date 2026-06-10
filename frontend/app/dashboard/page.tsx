@@ -8,7 +8,7 @@ import { api, getToken } from "@/lib/api";
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type Report = { id: string; file_name: string; rows_count: number; created_at: string; industry?: string };
-type Insight = { risk_score: number; delay_probability: number; inventory_risk: number; cost_impact_usd?: number; vertical_ai_score?: number };
+type Insight = { risk_score: number; delay_probability: number; inventory_risk: number; cost_impact_usd?: number; vertical_ai_score?: number; industry_detected?: string; benchmark_count?: number | null; sub_vertical?: string | null; resolved_at?: string | null; };
 type PlanInfo = { plan_tier: string; is_trial: boolean; days_remaining: number | null };
 
 function ScoreCard({ label, value, loading }: { label: string; value: string; loading: boolean }) {
@@ -110,6 +110,18 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Data flywheel contribution — Kai-Fu Lee principle #1 */}
+        {latestInsight && (latestInsight.benchmark_count ?? 0) > 0 && (
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/8 px-5 py-3">
+            <span className="text-blue-400 shrink-0">◉</span>
+            <p className="text-sm text-blue-300">
+              Your latest upload contributed to the{" "}
+              <span className="font-semibold capitalize">{(latestInsight.industry_detected || "operations").replace("_", " ")}</span>{" "}
+              benchmark — <span className="font-semibold">{latestInsight.benchmark_count} report{latestInsight.benchmark_count !== 1 ? "s" : ""}</span> analyzed across operations teams.
+            </p>
+          </div>
+        )}
 
         {/* Score cards */}
         <div className="grid gap-6 md:grid-cols-4 mb-8">

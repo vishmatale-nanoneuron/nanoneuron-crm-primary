@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "production"
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
+    ADMIN_SECRET: str = ""
 
     class Config:
         env_file = ".env"

@@ -24,6 +24,38 @@ COST_MULTIPLIERS = {
     "operations": 300,
 }
 
+# Kai-Fu Lee: India localization moat — injected into every AI prompt
+INDIA_CONTEXT = """
+India operations context — apply when Indian carrier names, Indian cities, or INR costs appear in the data:
+- Express carriers: BlueDart (premium, known for Mumbai→Delhi dwell spikes), DTDC (economy, B2B), Delhivery (fastest growing, strong last-mile), Ecom Express (D2C specialist), XpressBees (e-commerce), Shadowfax (hyperlocal), FedEx India, DHL India
+- High-risk corridors: Mumbai→Delhi (BlueDart delay pattern), Chennai→Bangalore (DTDC surcharge active June 2026), Hyderabad depot (AWB/GST documentation holds common)
+- Tier-2/3 last-mile cities (Nashik, Surat, Patna, Coimbatore, Lucknow, Indore): 25–35% higher delivery failure rates than metros
+- Monsoon seasonality (July–September): coastal + hill routes see 25–40% higher delay rates — flag as seasonal risk
+- Quote costs in INR (₹) where possible. ₹83 ≈ $1 USD. Include 18% GST on freight in total landed cost estimates.
+- Procurement/payment: Net-30/45/60 common; GST invoice non-compliance blocks payments and affects lead times
+"""
+
+# Kai-Fu Lee: sub-vertical depth — FTL/last-mile/cold chain within logistics, etc.
+SUB_VERTICAL_PATTERNS = {
+    "logistics": [
+        ("last_mile",   r"bluedart|dtdc|delhivery|xpressbees|ecom.express|shadowfax|last.mile|courier|pin.code|pincode|doorstep|b2c.delivery"),
+        ("ftl",         r"\bftl\b|full.truck|truckload|lorry|truck.load|vehicle.utilization|load.factor|part.load|\bptl\b"),
+        ("cold_chain",  r"cold.chain|reefer|temperature.controlled|frozen|chilled|perishable|pharma.logistics|vaccine|2-8.c|cold.storage"),
+        ("air_freight", r"airway.bill|\bawb\b|air.freight|air.cargo|cargo.flight|import|export|customs.clearance|air.consignment"),
+    ],
+    "manufacturing": [
+        ("discrete",   r"\bcnc\b|lathe|press|grinder|assembly|machine.tool|spindle|tooling|machined.parts|job.work"),
+        ("process",    r"\bbatch\b|reactor|mixing|blending|continuous.process|temperature.control|pressure.vessel|viscosity"),
+        ("automotive", r"automotive|vehicle|oem|tier.1|tier.2|stamping|welding|paint.shop|body.shop|car.parts"),
+        ("pharma",     r"pharma|pharmaceutical|\bapi\b|formulation|\bgmp\b|batch.record|\bcoa\b|cleanroom|sterile"),
+    ],
+    "warehouse": [
+        ("spare_parts", r"spare.parts|maintenance.spare|mechanical|bearings|motor.spare|pump|valve|sensor|conveyor.belt"),
+        ("3pl",         r"\b3pl\b|third.party.logistics|fulfillment.center|\bfc\b|distribution.center|contract.logistics|4pl"),
+        ("dark_store",  r"dark.store|quick.commerce|rapid.delivery|10.minute|instant.delivery|hyperlocal|q-commerce"),
+    ],
+}
+
 
 def classify_industry(text: str) -> str:
     lower = text.lower()
@@ -36,6 +68,16 @@ def classify_industry(text: str) -> str:
     }
     best = max(scores, key=lambda k: scores[k])
     return best if scores[best] > 0 else "operations"
+
+
+def classify_sub_vertical(industry: str, text: str) -> str:
+    """Kai-Fu Lee sub-vertical depth: detect specific domain within an industry."""
+    patterns = SUB_VERTICAL_PATTERNS.get(industry, [])
+    lower = text.lower()
+    for sub, pattern in patterns:
+        if re.search(pattern, lower):
+            return sub
+    return "general"
 
 
 def compute_vertical_ai_score(industry: str, text: str, risk_score: int) -> int:
@@ -90,6 +132,7 @@ def _fallback_analysis(text: str, industry: str) -> dict:
     if inventory_hits: pain.append(f"{inventory_hits} inventory shortage signals")
     if bottleneck_hits: pain.append(f"{bottleneck_hits} bottleneck/capacity signals")
     pain_str = "; ".join(pain) if pain else "no critical signals"
+    sub_vertical = classify_sub_vertical(industry, text)
     return {
         "risk_score": risk_score,
         "delay_probability": delay_prob,
@@ -102,18 +145,19 @@ def _fallback_analysis(text: str, industry: str) -> dict:
         ),
         "executive_summary": (
             f"OpsOracle detected {pain_str} in this {industry} report (risk score: {risk_score}/100). "
-            f"Estimated cost at risk: ${cost:,}. "
+            f"Estimated cost at risk: ₹{cost * 83:,} (${cost:,}). "
             "Immediate review of flagged items is recommended before the next planning cycle."
         ),
         "recommendations": (
             f"1. [THIS WEEK] Operations manager to review all rows flagged as delayed or pending — "
-            f"estimated {delay_prob}% of shipments/tasks at delay risk. Impact: prevent ${cost//3:,} in cost bleed.\n"
+            f"estimated {delay_prob}% of shipments/tasks at delay risk. Impact: prevent ₹{cost // 3 * 83:,} in cost bleed.\n"
             f"2. [THIS MONTH] Inventory team to audit low-stock SKUs identified in report — "
             f"{inv_risk}% inventory risk detected. Impact: eliminate stockout-driven lost revenue.\n"
             f"3. [NEXT QUARTER] Implement daily OpsOracle scanning to catch {industry} issues before they escalate. "
             f"Impact: early detection reduces cost impact by up to 60%."
         ),
         "industry_detected": industry,
+        "sub_vertical": sub_vertical,
         "cost_impact_usd": cost,
         "vertical_ai_score": vai_score,
         "annual_savings_usd": _annual_savings(cost),
@@ -133,18 +177,24 @@ def _get_client():
 
 def analyze_operations(extracted_text: str) -> dict:
     industry = classify_industry(extracted_text)
+    sub_vertical = classify_sub_vertical(industry, extracted_text)
     industry_hint = INDUSTRY_CONTEXT.get(industry, INDUSTRY_CONTEXT["operations"])
 
     client, model = _get_client()
     if not client:
-        return _fallback_analysis(extracted_text, industry)
+        result = _fallback_analysis(extracted_text, industry)
+        result["sub_vertical"] = sub_vertical
+        return result
 
     prompt = f"""You are OpsOracle AI — a vertical AI built specifically for {industry} operations teams.
 {industry_hint}
 
+{INDIA_CONTEXT}
+
 Your job: read the data, find the actual operational pains, and tell the team EXACTLY what to do.
 Be surgical. Use numbers from the data. Name the specific row, SKU, route, machine, or supplier causing the pain.
 Never say "monitor closely" or "track KPIs" — give a concrete action with a deadline and an owner.
+When Indian carrier names, cities, or INR costs appear in the data, use the India context above.
 
 Analyze this data and return a JSON object with these exact keys:
 
@@ -152,15 +202,15 @@ Analyze this data and return a JSON object with these exact keys:
 - delay_probability: integer 0-100
 - inventory_risk: integer 0-100
 
-- executive_summary: string — 2-3 sentences for a VP/COO. Lead with the single biggest pain found (name the specific item/route/machine if visible in data). End with the total financial exposure.
+- executive_summary: string — 2-3 sentences for a VP/COO. Lead with the single biggest pain found (name the specific item/route/machine if visible in data). Quote costs in INR (₹) where possible. End with the total financial exposure.
 
-- bottleneck_summary: string — Identify the single constraint choking throughput. Name it specifically (e.g. "Station 4 averaging 47min cycle vs 28min target" or "Carrier DHL Mumbai showing 34% late rate vs 8% SLA"). If no clear bottleneck, say what pattern comes closest.
+- bottleneck_summary: string — Identify the single constraint choking throughput. Name it specifically (e.g. "M2-Lathe averaging 117min downtime/shift vs 0min target" or "BlueDart Mumbai→Delhi showing 100% delay rate across 5 shipments"). If Indian carriers/cities visible, name them directly.
 
 - recommendations: string — Exactly 3 actions, numbered, each on its own line. Format:
-  1. [THIS WEEK] <specific action> — expected impact: <quantified result>
+  1. [THIS WEEK] <specific action> — expected impact: <quantified result in INR where applicable>
   2. [THIS MONTH] <specific action> — expected impact: <quantified result>
   3. [NEXT QUARTER] <systemic fix> — expected impact: <quantified result>
-  Each action must name WHO does it, WHAT exactly, and WHY (the pain it fixes).
+  Each action must name WHO does it, WHAT exactly, and WHY (the pain it fixes). Use Indian carrier names if present.
 
 - industry_detected: string (logistics | manufacturing | warehouse | retail | supply_chain | operations)
 - cost_impact_usd: integer (total USD at risk; 0 if no issues)
@@ -188,7 +238,10 @@ DATA:
         )
         result.setdefault("vertical_ai_score", vai_score)
         result.setdefault("annual_savings_usd", _annual_savings(int(result.get("cost_impact_usd", 0))))
+        result["sub_vertical"] = sub_vertical
         return result
     except Exception as e:
         logger.error("AI call failed (%s): %s", model, e, exc_info=True)
-        return _fallback_analysis(extracted_text, industry)
+        result = _fallback_analysis(extracted_text, industry)
+        result["sub_vertical"] = sub_vertical
+        return result

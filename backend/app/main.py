@@ -15,15 +15,27 @@ Base.metadata.create_all(bind=engine)
 def _run_migrations() -> None:
     """Idempotent column additions — runs on every startup, safe to re-run."""
     stmts = [
+        # Original migrations
         "ALTER TABLE ops_reports ADD COLUMN IF NOT EXISTS industry VARCHAR(50)",
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS industry_detected VARCHAR(50)",
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS cost_impact_usd INTEGER DEFAULT 0",
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS vertical_ai_score INTEGER DEFAULT 0",
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS annual_savings_usd INTEGER DEFAULT 0",
         "ALTER TABLE ops_users ADD COLUMN IF NOT EXISTS plan_tier VARCHAR(20) DEFAULT 'free'",
+        # Kai-Fu Lee: sub-vertical depth, feedback loop, expert trust, flywheel visibility
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS sub_vertical VARCHAR(50)",
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP",
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS resolution_note VARCHAR(500)",
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS expert_reviewed BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS benchmark_count INTEGER DEFAULT 0",
+        # Monday Morning Email digest preference
+        "ALTER TABLE ops_users ADD COLUMN IF NOT EXISTS email_digest BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE ops_users ADD COLUMN IF NOT EXISTS last_digest_sent_at TIMESTAMP",
+        # Indexes
         "CREATE INDEX IF NOT EXISTS idx_ops_reports_user_id ON ops_reports(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_ops_insights_report_id ON ops_insights(report_id)",
         "CREATE INDEX IF NOT EXISTS idx_ops_subscriptions_user_id ON ops_subscriptions(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_ops_insights_unresolved ON ops_insights(report_id) WHERE resolved_at IS NULL",
     ]
     try:
         with engine.connect() as conn:
@@ -36,7 +48,7 @@ def _run_migrations() -> None:
 
 _run_migrations()
 
-app = FastAPI(title="OpsOracle AI API", version="2.0.0", redirect_slashes=False)
+app = FastAPI(title="OpsOracle AI API", version="3.1.0", redirect_slashes=False)
 
 origins = [
     "https://nanoneuron.ai",
