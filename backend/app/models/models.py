@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "ops_users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False)
     password_hash = Column(Text, nullable=False)
@@ -15,9 +15,9 @@ class User(Base):
     reports = relationship("Report", back_populates="user", cascade="all, delete")
 
 class Report(Base):
-    __tablename__ = "reports"
+    __tablename__ = "ops_reports"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("ops_users.id"), nullable=False)
     file_name = Column(String(255), nullable=False)
     file_type = Column(String(50))
     extracted_text = Column(Text)
@@ -27,9 +27,9 @@ class Report(Base):
     insights = relationship("Insight", back_populates="report", cascade="all, delete")
 
 class Insight(Base):
-    __tablename__ = "insights"
+    __tablename__ = "ops_insights"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id"), nullable=False)
+    report_id = Column(UUID(as_uuid=True), ForeignKey("ops_reports.id"), nullable=False)
     risk_score = Column(Integer, default=0)
     delay_probability = Column(Integer, default=0)
     inventory_risk = Column(Integer, default=0)
