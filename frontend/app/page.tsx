@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PainSolver } from "@/components/PainSolver";
+import { LiveDemo } from "@/components/LiveDemo";
 
 const HOMEPAGE_PAINS = [
   {
@@ -120,6 +121,9 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* Live AI demo — no login needed */}
+      <LiveDemo />
 
       {/* Real Pain → AI Solves It */}
       <PainSolver pains={HOMEPAGE_PAINS} industry="Operations" />

@@ -14,7 +14,7 @@ type Insight = {
   industry_detected: string | null; cost_impact_usd: number | null;
   vertical_ai_score: number | null; annual_savings_usd: number | null;
   sub_vertical: string | null; resolved_at: string | null; resolution_note: string | null;
-  expert_reviewed: boolean; benchmark_count: number | null; created_at: string;
+  expert_reviewed: boolean; benchmark_count: number | null; agi_analysis: boolean; created_at: string;
 };
 
 function RiskBar({ value, label }: { value: number; label: string }) {
@@ -60,6 +60,8 @@ export default function ReportDetail() {
   const [resolving, setResolving] = useState(false);
   const [resolveNote, setResolveNote] = useState("");
   const [showResolveForm, setShowResolveForm] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   useEffect(() => {
     if (!getToken()) { router.push("/login"); return; }
@@ -74,6 +76,24 @@ export default function ReportDetail() {
       .catch(() => setError("Report not found or you don't have access."))
       .finally(() => setLoading(false));
   }, [reportId, router]);
+
+  async function handleShare() {
+    setSharing(true);
+    try {
+      const res = await fetch(`${API}/reports/${reportId}/share`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) {
+        const { share_url } = await res.json();
+        await navigator.clipboard.writeText(share_url);
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 3000);
+      }
+    } finally {
+      setSharing(false);
+    }
+  }
 
   async function handleResolve() {
     if (!insight) return;
@@ -145,6 +165,11 @@ export default function ReportDetail() {
                   ✓ Reviewed by Expert
                 </span>
               )}
+              {insight?.agi_analysis && (
+                <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs text-violet-400 font-semibold">
+                  ⚡ AGI Analysis
+                </span>
+              )}
               {isResolved && (
                 <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400 font-semibold">
                   ✓ Resolved {insight!.resolved_at ? new Date(insight!.resolved_at).toLocaleDateString("en-IN") : ""}
@@ -158,15 +183,42 @@ export default function ReportDetail() {
               </span>
             </div>
           </div>
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-xl border border-white/15 px-5 py-2.5 text-sm font-medium hover:bg-white/5 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Download PDF
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleShare}
+              disabled={sharing}
+              className={`flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-medium transition-colors ${
+                shareCopied
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                  : "border-white/15 hover:bg-white/5"
+              }`}
+            >
+              {shareCopied ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Link copied!
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                  {sharing ? "Generating..." : "Share Report"}
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 rounded-xl border border-white/15 px-5 py-2.5 text-sm font-medium hover:bg-white/5 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download PDF
+            </button>
+          </div>
         </div>
 
         {/* Print header — only in print */}
