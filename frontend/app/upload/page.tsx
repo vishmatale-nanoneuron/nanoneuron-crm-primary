@@ -37,11 +37,19 @@ function RiskBar({ value, label }: { value: number; label: string }) {
   );
 }
 
+const DEMO_INDUSTRIES = [
+  { value: "logistics", label: "Logistics & Shipments" },
+  { value: "manufacturing", label: "Manufacturing & Machines" },
+  { value: "warehouse", label: "Warehouse & Inventory" },
+];
+
 export default function Upload() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [insight, setInsight] = useState<Insight | null>(null);
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoIndustry, setDemoIndustry] = useState("logistics");
   const [error, setError] = useState("");
   const [usage, setUsage] = useState<Usage | null>(null);
 
@@ -52,6 +60,20 @@ export default function Upload() {
       .then(setUsage)
       .catch(() => {});
   }, [router]);
+
+  async function runDemo() {
+    setDemoLoading(true);
+    setError("");
+    setInsight(null);
+    const res = await fetch(`${API}/reports/demo?industry=${demoIndustry}`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    setDemoLoading(false);
+    if (!res.ok) { setError("Demo failed. Please try again."); return; }
+    setInsight(await res.json());
+    fetch(`${API}/reports/usage`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      .then(r => r.json()).then(setUsage).catch(() => {});
+  }
 
   const limitReached = usage !== null && !usage.unlimited && (usage.remaining ?? 1) <= 0;
 
@@ -131,6 +153,36 @@ export default function Upload() {
           </div>
         )}
 
+        {/* Try with sample data */}
+        <div className="card max-w-xl mb-4 border-emerald-500/20 bg-emerald-500/5">
+          <p className="text-xs uppercase tracking-wider text-emerald-400/70 mb-3">No file? Try live sample data</p>
+          <div className="flex gap-3 flex-wrap">
+            <select
+              value={demoIndustry}
+              onChange={e => setDemoIndustry(e.target.value)}
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+            >
+              {DEMO_INDUSTRIES.map(d => (
+                <option key={d.value} value={d.value} className="bg-zinc-900">{d.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={runDemo}
+              disabled={demoLoading}
+              className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+            >
+              {demoLoading ? "Analyzing..." : "▶ Run AI Demo"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-white/30">Uses real industry data — shows exactly how OpsOracle finds your pains</p>
+        </div>
+
+        <div className="flex items-center gap-3 max-w-xl mb-4">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-white/30 text-xs">or upload your own file</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+
         <form onSubmit={submit} className="card max-w-xl space-y-4">
           <input
             className="input"
@@ -160,7 +212,9 @@ export default function Upload() {
             <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
               <div>
                 <h2 className="text-2xl font-semibold">AI Risk Analysis</h2>
-                <p className="text-white/40 text-sm mt-1">Analysis complete — saved to your reports</p>
+                <p className="text-white/40 text-sm mt-1">
+                  {insight?.report_id ? "Analysis complete — saved to your reports" : "Live AI analysis"}
+                </p>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 {insight.industry_detected && (
