@@ -11,7 +11,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 TRIAL_DAYS = 14
 
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", response_model=TokenResponse)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -33,8 +33,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     )
     db.add(trial)
     db.commit()
-    db.refresh(user)
-    return user
+    return TokenResponse(access_token=create_access_token(str(user.id)))
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
