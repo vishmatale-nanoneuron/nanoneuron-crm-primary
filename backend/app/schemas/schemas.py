@@ -91,3 +91,5 @@ class PlanResponse(BaseModel):
     status: str
     expires_at: datetime | None = None
     features: list[str]
+    is_trial: bool = False
+    days_remaining: int | None = None

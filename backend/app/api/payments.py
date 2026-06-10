@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -146,14 +146,32 @@ def my_plan(
     tier = user.plan_tier or "free"
     active_sub = (
         db.query(Subscription)
-        .filter(Subscription.user_id == user.id, Subscription.status == "active")
+        .filter(
+            Subscription.user_id == user.id,
+            Subscription.status.in_(["active", "trial"]),
+        )
         .order_by(Subscription.expires_at.desc())
         .first()
     )
+    # Auto-downgrade if trial/subscription expired
+    if active_sub and active_sub.expires_at and active_sub.expires_at < datetime.utcnow():
+        user.plan_tier = "free"
+        tier = "free"
+        db.commit()
+        active_sub = None
+
+    is_trial = active_sub is not None and active_sub.status == "trial"
+    days_remaining = None
+    if active_sub and active_sub.expires_at:
+        delta = active_sub.expires_at - datetime.utcnow()
+        days_remaining = max(0, delta.days)
+
     features = PLANS.get(tier, {}).get("features", FREE_FEATURES)
     return PlanResponse(
         plan_tier=tier,
-        status="active",
+        status=active_sub.status if active_sub else "free",
         expires_at=active_sub.expires_at if active_sub else None,
         features=features,
+        is_trial=is_trial,
+        days_remaining=days_remaining,
     )
