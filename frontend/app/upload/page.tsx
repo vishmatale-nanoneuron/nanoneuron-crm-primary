@@ -8,6 +8,8 @@ import { getToken } from "@/lib/api";
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type Insight = {
+  id: string;
+  report_id: string;
   risk_score: number;
   delay_probability: number;
   inventory_risk: number;
@@ -156,7 +158,10 @@ export default function Upload() {
         {insight && (
           <section className="mt-10">
             <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
-              <h2 className="text-2xl font-semibold">AI Risk Analysis</h2>
+              <div>
+                <h2 className="text-2xl font-semibold">AI Risk Analysis</h2>
+                <p className="text-white/40 text-sm mt-1">Analysis complete — saved to your reports</p>
+              </div>
               <div className="flex items-center gap-3 flex-wrap">
                 {insight.industry_detected && (
                   <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400 capitalize">
@@ -167,6 +172,14 @@ export default function Upload() {
                   <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-400">
                     Vertical AI Score: {insight.vertical_ai_score}/100
                   </span>
+                )}
+                {insight.report_id && (
+                  <Link
+                    href={`/reports/${insight.report_id}`}
+                    className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-sm font-semibold text-white transition-colors"
+                  >
+                    View Full Report →
+                  </Link>
                 )}
               </div>
             </div>

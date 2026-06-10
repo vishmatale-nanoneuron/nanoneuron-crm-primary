@@ -123,6 +123,14 @@ def list_reports(db: Session = Depends(get_db), user: User = Depends(get_current
     return db.query(Report).filter(Report.user_id == user.id).order_by(Report.created_at.desc()).all()
 
 
+@router.get("/{report_id}", response_model=ReportResponse)
+def get_report(report_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    report = db.query(Report).filter(Report.id == report_id, Report.user_id == user.id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return report
+
+
 @router.get("/{report_id}/insights", response_model=list[InsightResponse])
 def report_insights(report_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     report = db.query(Report).filter(Report.id == report_id, Report.user_id == user.id).first()
