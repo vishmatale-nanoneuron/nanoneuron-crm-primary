@@ -38,7 +38,7 @@ const PLANS = [
     cta: "Get Started Free",
     ctaLink: "/register",
     features: [
-      { label: "Unlimited report uploads", included: true },
+      { label: "3 reports per day (free)", included: true },
       { label: "AI risk scoring (0–100)", included: true },
       { label: "Delay probability analysis", included: true },
       { label: "Inventory risk detection", included: true },

@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -8,6 +9,31 @@ from app.services.file_parser import parse_uploaded_file
 from app.services.ai_service import analyze_operations
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+DAILY_FREE_LIMIT = 3
+
+
+def _today_start() -> datetime:
+    now = datetime.utcnow()
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _daily_used(db: Session, user_id) -> int:
+    return db.query(Report).filter(
+        Report.user_id == user_id,
+        Report.created_at >= _today_start(),
+    ).count()
+
+
+def _check_daily_limit(user: User, db: Session) -> None:
+    if (user.plan_tier or "free") != "free":
+        return
+    used = _daily_used(db, user.id)
+    if used >= DAILY_FREE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"You've used all {DAILY_FREE_LIMIT} free reports for today. Upgrade to Pro for unlimited uploads.",
+        )
 
 
 def _update_benchmark(db: Session, industry: str, risk: int, delay: int, inventory: int) -> None:
@@ -28,12 +54,23 @@ def _update_benchmark(db: Session, industry: str, risk: int, delay: int, invento
         db.add(bench)
 
 
+@router.get("/usage")
+def daily_usage(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    tier = user.plan_tier or "free"
+    if tier != "free":
+        return {"plan_tier": tier, "used": 0, "limit": None, "unlimited": True, "remaining": None}
+    used = _daily_used(db, user.id)
+    remaining = max(0, DAILY_FREE_LIMIT - used)
+    return {"plan_tier": tier, "used": used, "limit": DAILY_FREE_LIMIT, "unlimited": False, "remaining": remaining}
+
+
 @router.post("/upload", response_model=InsightResponse)
 async def upload_report(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _check_daily_limit(user, db)
     content = await file.read()
     try:
         text, rows_count = parse_uploaded_file(file.filename, content)
