@@ -83,13 +83,36 @@ def _fallback_analysis(text: str, industry: str) -> dict:
     rows = max(1, len(text.split("\n")))
     cost = int(risk_score / 100 * rows * COST_MULTIPLIERS.get(industry, 300))
     vai_score = compute_vertical_ai_score(industry, text, risk_score)
+    delay_prob = min(95, 15 + delay_hits * 12)
+    inv_risk = min(95, 10 + inventory_hits * 15)
+    pain = []
+    if delay_hits: pain.append(f"{delay_hits} delay/late signals detected")
+    if inventory_hits: pain.append(f"{inventory_hits} inventory shortage signals")
+    if bottleneck_hits: pain.append(f"{bottleneck_hits} bottleneck/capacity signals")
+    pain_str = "; ".join(pain) if pain else "no critical signals"
     return {
         "risk_score": risk_score,
-        "delay_probability": min(95, 15 + delay_hits * 12),
-        "inventory_risk": min(95, 10 + inventory_hits * 15),
-        "bottleneck_summary": "Potential bottlenecks detected." if bottleneck_hits else "No major bottlenecks detected.",
-        "executive_summary": "Report analyzed for delays, inventory risks, and bottlenecks. Use as early signal.",
-        "recommendations": "Validate high-risk rows manually, contact operations owner, track KPIs daily.",
+        "delay_probability": delay_prob,
+        "inventory_risk": inv_risk,
+        "bottleneck_summary": (
+            f"Pattern analysis found {bottleneck_hits} capacity/queue signals — "
+            "review rows with 'blocked', 'queue', or 'capacity' flags with your operations lead."
+            if bottleneck_hits else
+            "No bottleneck signals found in this data. Throughput appears within normal range."
+        ),
+        "executive_summary": (
+            f"OpsOracle detected {pain_str} in this {industry} report (risk score: {risk_score}/100). "
+            f"Estimated cost at risk: ${cost:,}. "
+            "Immediate review of flagged items is recommended before the next planning cycle."
+        ),
+        "recommendations": (
+            f"1. [THIS WEEK] Operations manager to review all rows flagged as delayed or pending — "
+            f"estimated {delay_prob}% of shipments/tasks at delay risk. Impact: prevent ${cost//3:,} in cost bleed.\n"
+            f"2. [THIS MONTH] Inventory team to audit low-stock SKUs identified in report — "
+            f"{inv_risk}% inventory risk detected. Impact: eliminate stockout-driven lost revenue.\n"
+            f"3. [NEXT QUARTER] Implement daily OpsOracle scanning to catch {industry} issues before they escalate. "
+            f"Impact: early detection reduces cost impact by up to 60%."
+        ),
         "industry_detected": industry,
         "cost_impact_usd": cost,
         "vertical_ai_score": vai_score,
@@ -116,20 +139,33 @@ def analyze_operations(extracted_text: str) -> dict:
     if not client:
         return _fallback_analysis(extracted_text, industry)
 
-    prompt = f"""You are OpsOracle AI, a vertical AI specialized in {industry} operations analysis.
+    prompt = f"""You are OpsOracle AI — a vertical AI built specifically for {industry} operations teams.
 {industry_hint}
 
-Analyze this operational data. Return a JSON object with these exact keys:
-- risk_score: integer 0-100 (overall operational risk)
-- delay_probability: integer 0-100 (likelihood of delivery/production delays)
-- inventory_risk: integer 0-100 (inventory shortage or excess risk)
-- bottleneck_summary: string (1-2 sentences on detected bottlenecks specific to {industry})
-- executive_summary: string (2-3 sentences summary for executives with quantified impact where possible)
-- recommendations: string (3 specific actionable recommendations for {industry} operations)
-- industry_detected: string (the detected industry — use exactly: logistics, manufacturing, warehouse, retail, supply_chain, or operations)
-- cost_impact_usd: integer (estimated total USD cost at risk from all detected issues combined; use 0 if no issues found)
-- vertical_ai_score: integer 0-100 (confidence and specificity of this AI analysis — higher means more domain-specific signals found)
-- annual_savings_usd: integer (estimated annual savings if all recommendations are implemented; typically 3-5× the cost_impact_usd)
+Your job: read the data, find the actual operational pains, and tell the team EXACTLY what to do.
+Be surgical. Use numbers from the data. Name the specific row, SKU, route, machine, or supplier causing the pain.
+Never say "monitor closely" or "track KPIs" — give a concrete action with a deadline and an owner.
+
+Analyze this data and return a JSON object with these exact keys:
+
+- risk_score: integer 0-100
+- delay_probability: integer 0-100
+- inventory_risk: integer 0-100
+
+- executive_summary: string — 2-3 sentences for a VP/COO. Lead with the single biggest pain found (name the specific item/route/machine if visible in data). End with the total financial exposure.
+
+- bottleneck_summary: string — Identify the single constraint choking throughput. Name it specifically (e.g. "Station 4 averaging 47min cycle vs 28min target" or "Carrier DHL Mumbai showing 34% late rate vs 8% SLA"). If no clear bottleneck, say what pattern comes closest.
+
+- recommendations: string — Exactly 3 actions, numbered, each on its own line. Format:
+  1. [THIS WEEK] <specific action> — expected impact: <quantified result>
+  2. [THIS MONTH] <specific action> — expected impact: <quantified result>
+  3. [NEXT QUARTER] <systemic fix> — expected impact: <quantified result>
+  Each action must name WHO does it, WHAT exactly, and WHY (the pain it fixes).
+
+- industry_detected: string (logistics | manufacturing | warehouse | retail | supply_chain | operations)
+- cost_impact_usd: integer (total USD at risk; 0 if no issues)
+- vertical_ai_score: integer 0-100
+- annual_savings_usd: integer (3-5× cost_impact_usd if recommendations are implemented)
 
 DATA:
 {extracted_text[:12000]}"""
