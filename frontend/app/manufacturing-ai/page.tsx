@@ -1,5 +1,39 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PainSolver } from "@/components/PainSolver";
+
+const MANUFACTURING_PAINS = [
+  {
+    pain: "M2-Lathe keeps breaking down. Maintenance says it's random. Production is losing 360 minutes a week.",
+    signal: "M2-Lathe Morning: 95min downtime | M2-Lathe Afternoon: 110min downtime | M2-Lathe Night: 155min downtime | Reason: Breakdown",
+    aiOutput: {
+      risk: 88, label: "CRITICAL — Stop the Bleed", color: "red" as const,
+      summary: "M2-Lathe has 360 minutes total downtime this week — 3× floor average. Output: 415 units vs 900 planned (54% attainment). Pattern is escalating shift-over-shift: not random, it's mechanical degradation.",
+      action: "Maintenance engineer to inspect M2-Lathe spindle bearings and coolant system before next shift. Schedule 4-hour PM this weekend — do not wait for next scheduled PM.",
+      impact: "Recover 485 lost units/week = ₹1,94,000 weekly production value restored",
+    },
+  },
+  {
+    pain: "Defect rate spiked from 2% to 8% this week. Quality team can't pinpoint which machine.",
+    signal: "M1-Press defects: 8 | M2-Lathe defects: 22 | M2-Lathe defects night: 40 | Floor average: 3 defects/shift",
+    aiOutput: {
+      risk: 71, label: "HIGH — Isolate Today", color: "red" as const,
+      summary: "M2-Lathe night shift producing 13× floor average defects (40 vs 3). Rework cost: ₹48,000 this week. Defect rate correlates with downtime events — root cause is likely a tooling issue introduced after last breakdown.",
+      action: "Quality lead to pull M2-Lathe night shift tooling for inspection. Isolate night operator or tooling as variable. Halt M2-Lathe production until tool change verified.",
+      impact: "Eliminate ₹48,000 weekly scrap cost; prevent customer returns on this batch",
+    },
+  },
+  {
+    pain: "Morning shift always outperforms afternoon. Plant manager wants to know why.",
+    signal: "M1-Press Morning: 487/500 | M1-Press Afternoon: 460/500 | Reason: Material wait | Downtime: 18min",
+    aiOutput: {
+      risk: 44, label: "MEDIUM — Optimize", color: "yellow" as const,
+      summary: "M1-Press afternoon shift loses 18 minutes to material wait — matching 94% of its performance gap vs morning. Material staging arrives 15–20 minutes late for 2pm shift start.",
+      action: "Production scheduler to move M1-Press material staging prep to 1:30pm (30 min before shift). Assign one store hand to pre-stage 500 units before handover.",
+      impact: "Close 27-unit gap per shift = ₹10,800/day recovered at ₹400/unit",
+    },
+  },
+];
 
 export const metadata: Metadata = {
   title: "Manufacturing AI — OEE Analysis, Downtime Prediction & Production Risk",
@@ -124,6 +158,8 @@ export default function ManufacturingAI() {
           </div>
         </div>
       </section>
+
+      <PainSolver pains={MANUFACTURING_PAINS} industry="Manufacturing" />
 
       <section className="px-6 py-20 border-t border-white/8">
         <div className="mx-auto max-w-5xl">

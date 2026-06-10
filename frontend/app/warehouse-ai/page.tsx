@@ -1,5 +1,39 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PainSolver } from "@/components/PainSolver";
+
+const WAREHOUSE_PAINS = [
+  {
+    pain: "Conveyor belt snapped. Production stopped 4 hours waiting for a spare that was out of stock.",
+    signal: "SKU-105 Conveyor Belt 2m: stock=0 | reorder_point=5 | daily_demand=1 | lead_time=21d | last_restock=2026-04-15",
+    aiOutput: {
+      risk: 91, label: "CRITICAL — Stockout NOW", color: "red" as const,
+      summary: "SKU-105 Conveyor Belt has been at zero stock for 56 days. Lead time is 21 days. With daily demand of 1 unit, every unplanned need causes a production stop — you're operating on luck.",
+      action: "Procurement to raise emergency PO for SKU-105 today — request express delivery (2–3 days, accept 30% premium). Set reorder point to 8 units minimum. Never let this go below 3.",
+      impact: "Prevent next production stoppage worth ₹2,40,000 per 4-hour stop",
+    },
+  },
+  {
+    pain: "Motor broke down. Checked warehouse — only 3 in stock vs reorder point of 15. Too late.",
+    signal: "SKU-103 Motor 0.5HP: stock=3 | reorder_point=15 | daily_demand=2 | lead_time=14d | last_restock=2026-05-01",
+    aiOutput: {
+      risk: 79, label: "HIGH — Order Today", color: "red" as const,
+      summary: "SKU-103 Motor 0.5HP has 1.5 days of cover left at current demand. Reorder point is 15 — you're 12 units below trigger. At 14-day lead time, a PO raised today arrives when stock is already zero.",
+      action: "Stores manager to raise PO for 25 units of SKU-103 today. Flag as urgent to supplier. Set system reorder point to 30 units to account for lead time buffer.",
+      impact: "Prevent 2–3 production stoppages in the next 30 days; save ₹4,80,000 in downtime costs",
+    },
+  },
+  {
+    pain: "Carrying ₹8 lakh in safety gloves that aren't moving. Working capital stuck.",
+    signal: "SKU-102 Safety Gloves L: stock=320 | reorder_point=50 | daily_demand=12 | days_cover=26 | last_restock=2026-06-05",
+    aiOutput: {
+      risk: 28, label: "LOW — Optimize Stock", color: "emerald" as const,
+      summary: "SKU-102 Safety Gloves has 26 days cover — 2× the optimal 14-day buffer. 160 excess units (₹96,000) are tying up warehouse space and working capital unnecessarily.",
+      action: "Procurement to pause next scheduled reorder for SKU-102 until stock drops to 80 units. Redistribute 100 units to sister facility if possible.",
+      impact: "Free ₹96,000 working capital; reduce carrying cost by ₹4,800/month",
+    },
+  },
+];
 
 export const metadata: Metadata = {
   title: "Warehouse AI — Inventory Risk Analysis, Stockout Prediction & WMS Analytics",
@@ -124,6 +158,8 @@ export default function WarehouseAI() {
           </div>
         </div>
       </section>
+
+      <PainSolver pains={WAREHOUSE_PAINS} industry="Warehouse" />
 
       <section className="px-6 py-20 border-t border-white/8">
         <div className="mx-auto max-w-5xl">

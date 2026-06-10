@@ -1,5 +1,39 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PainSolver } from "@/components/PainSolver";
+
+const LOGISTICS_PAINS = [
+  {
+    pain: "BlueDart keeps missing Delhi deliveries. You find out 4 days late, after the customer calls.",
+    signal: "SH-1005 Mumbai→Delhi BlueDart PENDING +3d | SH-1007 Mumbai→Delhi BlueDart PENDING +2d | SH-1009 Mumbai→Delhi BlueDart PENDING +1d",
+    aiOutput: {
+      risk: 82, label: "HIGH — Act Today", color: "red" as const,
+      summary: "BlueDart Mumbai→Delhi route has 100% delay rate across 5 shipments (₹28,600 at risk). 3 pending shipments overdue today. DTDC same corridor shows 0% delay.",
+      action: "Logistics Manager to re-route SH-1005, SH-1007, SH-1009 to Delhivery before 5pm today. Escalate SLA breach to BlueDart key account.",
+      impact: "Prevent ₹28,600 cost-in-transit + 3 customer SLA breaches this week",
+    },
+  },
+  {
+    pain: "Freight costs jumped 23% this month. Finance wants answers. You don't have them.",
+    signal: "Route: Chennai→Bangalore | Avg cost May: ₹1,800 | Avg cost June: ₹2,214 | Volume: same | Carrier: mixed",
+    aiOutput: {
+      risk: 61, label: "MEDIUM — Investigate", color: "yellow" as const,
+      summary: "Chennai→Bangalore lane shows 23% cost increase with flat volume. Top driver: DTDC surcharge effective June 1 (+₹180/shipment). 12 affected shipments this month.",
+      action: "Procurement to request DTDC rate card revision. Meanwhile consolidate Tuesday/Thursday dispatches to cut per-shipment cost by ₹340.",
+      impact: "Recover ₹4,080 in June, ₹16,320 annually on this lane alone",
+    },
+  },
+  {
+    pain: "3 shipments stuck at Hyderabad depot for 6 days. Root cause unknown.",
+    signal: "SH-1006 HYD depot dwell: 6d | SH-1010 HYD depot dwell: 4d | Normal dwell: 0.5d | Status: Pending",
+    aiOutput: {
+      risk: 74, label: "HIGH — Escalate Now", color: "red" as const,
+      summary: "Hyderabad depot showing 8–12× normal dwell time on 3 shipments. Pattern matches a documentation hold — AWB mismatch or GST number issue is the likely cause.",
+      action: "Ops team to call HYD depot supervisor directly — request AWB scan and customs/GST check on SH-1006 and SH-1010 before close of business today.",
+      impact: "Release ₹14,400 in stuck inventory; prevent customer escalation",
+    },
+  },
+];
 
 export const metadata: Metadata = {
   title: "Logistics AI — Shipment Delay Prediction & Freight Risk Analysis",
@@ -124,6 +158,8 @@ export default function LogisticsAI() {
           </div>
         </div>
       </section>
+
+      <PainSolver pains={LOGISTICS_PAINS} industry="Logistics" />
 
       <section className="px-6 py-20 border-t border-white/8">
         <div className="mx-auto max-w-5xl">
