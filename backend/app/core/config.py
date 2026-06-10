@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
     ADMIN_SECRET: str = ""
+    RESEND_API_KEY: str = ""
+    DIGEST_FROM_EMAIL: str = "digest@nanoneuron.ai"
+    APP_URL: str = "https://nanoneuron.ai"
 
     class Config:
         env_file = ".env"

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.core.database import Base, engine
 from app.models import models
-from app.api import auth, reports, insights, payments
+from app.api import auth, reports, insights, payments, digest
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +68,9 @@ app.include_router(auth.router)
 app.include_router(reports.router)
 app.include_router(insights.router)
 app.include_router(payments.router)
+app.include_router(digest.router)
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "product": "OpsOracle AI", "version": "3.0.0"}
+    return {"status": "ok", "product": "OpsOracle AI", "version": "3.1.0"}
