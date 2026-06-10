@@ -12,8 +12,10 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False)
     password_hash = Column(Text, nullable=False)
     company_name = Column(String(255), nullable=False)
+    plan_tier = Column(String(20), default="free", server_default="free")
     created_at = Column(DateTime, server_default=func.now())
     reports = relationship("Report", back_populates="user", cascade="all, delete")
+    subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete")
 
 
 class Report(Base):
@@ -46,6 +48,22 @@ class Insight(Base):
     annual_savings_usd = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
     report = relationship("Report", back_populates="insights")
+
+
+class Subscription(Base):
+    """Records every payment — plan_tier on User is the live source of truth."""
+    __tablename__ = "ops_subscriptions"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("ops_users.id"), nullable=False)
+    plan_tier = Column(String(20), nullable=False)
+    razorpay_order_id = Column(String(100))
+    razorpay_payment_id = Column(String(100))
+    amount_paise = Column(Integer, default=0)
+    status = Column(String(20), default="pending")  # pending | active
+    started_at = Column(DateTime)
+    expires_at = Column(DateTime)
+    created_at = Column(DateTime, server_default=func.now())
+    user = relationship("User", back_populates="subscriptions")
 
 
 class IndustryBenchmark(Base):

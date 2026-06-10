@@ -65,3 +65,29 @@ class BenchmarkResponse(BaseModel):
     avg_delay_probability: float
     avg_inventory_risk: float
     report_count: int
+
+
+class CreateOrderRequest(BaseModel):
+    plan_tier: str
+
+
+class CreateOrderResponse(BaseModel):
+    order_id: str
+    amount: int
+    currency: str
+    key_id: str
+    plan_tier: str
+    plan_name: str
+
+
+class VerifyPaymentRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+class PlanResponse(BaseModel):
+    plan_tier: str
+    status: str
+    expires_at: datetime | None = None
+    features: list[str]

@@ -25,10 +25,12 @@ export default function Nav() {
             <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
             <Link href="/upload" className="hover:text-white transition-colors">Upload</Link>
             <Link href="/reports" className="hover:text-white transition-colors">Reports</Link>
+            <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <button onClick={logout} className="text-white/50 hover:text-white transition-colors">Logout</button>
           </>
         ) : (
           <>
+            <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-white transition-colors">Login</Link>
             <Link href="/register" className="btn !py-2 !px-4 !text-sm">Get Started</Link>
           </>

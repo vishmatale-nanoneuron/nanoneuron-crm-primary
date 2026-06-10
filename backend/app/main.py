@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.core.database import Base, engine
 from app.models import models
-from app.api import auth, reports, insights
+from app.api import auth, reports, insights, payments
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,10 @@ def _run_migrations() -> None:
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS cost_impact_usd INTEGER DEFAULT 0",
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS vertical_ai_score INTEGER DEFAULT 0",
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS annual_savings_usd INTEGER DEFAULT 0",
+        "ALTER TABLE ops_users ADD COLUMN IF NOT EXISTS plan_tier VARCHAR(20) DEFAULT 'free'",
+        "CREATE INDEX IF NOT EXISTS idx_ops_reports_user_id ON ops_reports(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_ops_insights_report_id ON ops_insights(report_id)",
+        "CREATE INDEX IF NOT EXISTS idx_ops_subscriptions_user_id ON ops_subscriptions(user_id)",
     ]
     try:
         with engine.connect() as conn:
@@ -51,8 +55,9 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(reports.router)
 app.include_router(insights.router)
+app.include_router(payments.router)
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "product": "OpsOracle AI", "version": "2.0.0"}
+    return {"status": "ok", "product": "OpsOracle AI", "version": "3.0.0"}

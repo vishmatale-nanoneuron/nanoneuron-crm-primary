@@ -56,6 +56,9 @@ export default function Home() {
             <span className="text-emerald-400">Ops</span>Oracle AI
           </span>
           <div className="flex items-center gap-4">
+            <Link href="/pricing" className="text-sm text-white/60 hover:text-white transition-colors">
+              Pricing
+            </Link>
             <Link href="/login" className="text-sm text-white/60 hover:text-white transition-colors">
               Login
             </Link>
@@ -289,6 +292,7 @@ export default function Home() {
             <Link href="/logistics-ai" className="hover:text-white transition-colors">Logistics</Link>
             <Link href="/manufacturing-ai" className="hover:text-white transition-colors">Manufacturing</Link>
             <Link href="/warehouse-ai" className="hover:text-white transition-colors">Warehouse</Link>
+            <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-white transition-colors">Login</Link>
             <Link href="/register" className="hover:text-white transition-colors">Register</Link>
           </div>

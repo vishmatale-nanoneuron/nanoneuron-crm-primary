@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.models import IndustryBenchmark, Insight, Report
@@ -8,9 +8,17 @@ from app.models.models import User
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 
+UPGRADE_MSG = "Industry benchmarks and trend analytics require OpsOracle Pro (₹999/month). Upgrade at /pricing."
+
+
+def _require_pro(user: User) -> None:
+    if (user.plan_tier or "free") not in ("pro", "enterprise"):
+        raise HTTPException(status_code=402, detail=UPGRADE_MSG)
+
 
 @router.get("/benchmarks", response_model=list[BenchmarkResponse])
-def list_benchmarks(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def list_benchmarks(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _require_pro(user)
     rows = db.query(IndustryBenchmark).filter(IndustryBenchmark.report_count > 0).all()
     result = []
     for r in rows:
@@ -26,6 +34,7 @@ def list_benchmarks(db: Session = Depends(get_db), _: User = Depends(get_current
 
 @router.get("/dashboard-stats")
 def dashboard_stats(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _require_pro(user)
     """Returns user's risk trend over last 10 reports — powers the data flywheel UX."""
     reports = (
         db.query(Report)
