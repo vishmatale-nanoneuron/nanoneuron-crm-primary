@@ -299,6 +299,7 @@ DATA TO ANALYZE:
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
+            max_tokens=3000,
             response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content or "{}"
