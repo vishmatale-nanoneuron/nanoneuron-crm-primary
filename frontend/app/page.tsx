@@ -41,6 +41,8 @@ const industries = [
   { href: "/warehouse-ai", label: "Warehouse AI", pain: "Stockouts found when production stops", kpi: "Flag inventory crises before they hit" },
   { href: "/devops-ai", label: "DevOps AI", pain: "P1 incident at 2am — deploy caused it, nobody knows which", kpi: "Find the deploy that caused the incident" },
   { href: "/mlops-ai", label: "MLOps AI", pain: "Model accuracy dropped 15%. Team finds out from a customer complaint.", kpi: "Detect model drift before it costs you" },
+  { href: "/retail-ai", label: "Retail AI", pain: "3 top-selling SKUs out of stock. Dead inventory worth ₹4L sitting unsold.", kpi: "Flag stockouts and dead stock before revenue bleeds" },
+  { href: "/supply-chain-ai", label: "Supply Chain AI", pain: "Critical supplier at 38% on-time delivery. Production stopped waiting for parts.", kpi: "Identify supplier risk before it stops the line" },
 ];
 
 export default function Home() {
@@ -57,6 +59,8 @@ export default function Home() {
             <Link href="/warehouse-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">Warehouse</Link>
             <Link href="/devops-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">DevOps</Link>
             <Link href="/mlops-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">MLOps</Link>
+            <Link href="/retail-ai" className="hidden lg:block text-sm text-white/60 hover:text-white transition-colors">Retail</Link>
+            <Link href="/supply-chain-ai" className="hidden lg:block text-sm text-white/60 hover:text-white transition-colors">Supply Chain</Link>
             <Link href="/pricing" className="text-sm text-white/60 hover:text-white transition-colors">Pricing</Link>
             <Link href="/login" className="text-sm text-white/60 hover:text-white transition-colors">Login</Link>
             <Link href="/register" className="btn text-sm py-2 px-5">Try Free</Link>
@@ -80,6 +84,8 @@ export default function Home() {
               { label: "WAREHOUSE", signal: "SKU-105 Conveyor Belt · stock = 0 · lead time 21 days · stockout for 56 days", color: "border-red-500/30 bg-red-500/5 text-red-300" },
               { label: "DEVOPS", signal: "payment-service · 2 failed deploys in 6 days · P1 incident · MTTR 105 min", color: "border-red-500/30 bg-red-500/5 text-red-300" },
               { label: "MLOPS", signal: "fraud-detector · accuracy 94% → 87% · data drift 0.34 · retraining overdue", color: "border-red-500/30 bg-red-500/5 text-red-300" },
+              { label: "RETAIL", signal: "SKU-202 · stock = 0 · 28 units/week demand · ₹46,200 stockout loss this week", color: "border-red-500/30 bg-red-500/5 text-red-300" },
+              { label: "SUPPLY CHAIN", signal: "ImportComp China · Sensor-F6 · stock=2 · lead time 45d · 38% OTD · CRITICAL", color: "border-red-500/30 bg-red-500/5 text-red-300" },
             ].map((s) => (
               <div key={s.label} className={`flex items-center gap-3 rounded-xl border ${s.color} px-4 py-3 font-mono text-sm`}>
                 <span className="text-xs text-white/30 shrink-0 w-24">{s.label}</span>
@@ -207,6 +213,8 @@ export default function Home() {
             <Link href="/warehouse-ai" className="hover:text-white transition-colors">Warehouse AI</Link>
             <Link href="/devops-ai" className="hover:text-white transition-colors">DevOps AI</Link>
             <Link href="/mlops-ai" className="hover:text-white transition-colors">MLOps AI</Link>
+            <Link href="/retail-ai" className="hover:text-white transition-colors">Retail AI</Link>
+            <Link href="/supply-chain-ai" className="hover:text-white transition-colors">Supply Chain AI</Link>
             <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-white transition-colors">Login</Link>
           </div>

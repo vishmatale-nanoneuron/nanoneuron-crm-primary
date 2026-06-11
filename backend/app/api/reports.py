@@ -59,6 +59,32 @@ SKU-108,Work Gloves M,PPE,15,40,8,3,2026-06-01,B2
 SKU-109,Drill Bit Set,Tools,60,20,3,5,2026-06-03,A3
 SKU-110,Transformer 5KVA,Electrical,1,3,0,45,2026-02-20,C1""",
 
+    "retail": """Store,SKU,Product,Category,Current_Stock,Weekly_Sales,Forecast_Sales,Sell_Through_Pct,Returns,Last_Restocked,Days_Until_Stockout
+STORE-MUM,SKU-201,iPhone 15 Case Black,Accessories,12,45,50,88,3,2026-06-01,1
+STORE-MUM,SKU-202,Samsung Galaxy Charger,Electronics,0,28,30,100,2,2026-05-20,0
+STORE-DEL,SKU-203,Summer Dress Red,Apparel,145,8,25,32,18,2026-06-05,18
+STORE-DEL,SKU-204,Running Shoes Size 9,Footwear,3,22,24,88,1,2026-06-07,1
+STORE-BLR,SKU-205,Coffee Maker 1L,Kitchen,67,4,5,80,9,2026-06-01,16
+STORE-MUM,SKU-206,Yoga Mat Premium,Sports,0,15,18,100,0,2026-05-15,0
+STORE-DEL,SKU-207,LED Monitor 24in,Electronics,8,12,14,86,2,2026-05-28,4
+STORE-BLR,SKU-208,Winter Jacket L,Apparel,220,2,3,67,31,2026-06-08,110
+STORE-MUM,SKU-209,Protein Powder 1kg,Health,5,32,35,91,1,2026-06-05,1
+STORE-DEL,SKU-210,Bluetooth Speaker,Electronics,0,19,22,100,4,2026-05-22,0
+STORE-BLR,SKU-211,Running Shoes Size 10,Footwear,1,18,20,90,0,2026-06-06,0
+STORE-MUM,SKU-212,Desk Lamp LED,Home,89,3,4,75,6,2026-06-03,29""",
+
+    "supply_chain": """Supplier,Part,Category,Lead_Time_Days,Promised_Lead_Days,OTD_Pct,Current_Stock,Safety_Stock,Reorder_Point,Open_POs,PO_Value_INR,Risk
+TechComp India,PCB-A1,Electronics,21,14,62,120,200,300,2,480000,HIGH
+SteelWorks Pune,Shaft-B2,Mechanical,8,7,91,450,100,150,0,,LOW
+ChemSupply Mumbai,Adhesive-C3,Chemical,35,21,44,8,50,100,1,85000,CRITICAL
+AutoParts Delhi,Bearing-D4,Mechanical,12,10,78,95,80,120,1,42000,MEDIUM
+PlasticMold Ahmedabad,Housing-E5,Plastics,18,14,55,30,40,80,2,156000,HIGH
+ImportComp China,Sensor-F6,Electronics,45,30,38,2,20,30,1,220000,CRITICAL
+FiberTex Surat,Cable-G7,Electrical,7,5,87,680,100,150,0,,LOW
+PCBFab Bangalore,Module-H8,Electronics,28,21,66,55,60,90,1,95000,MEDIUM
+FastenersCo Nashik,Bolt-I9,Fasteners,4,3,94,2400,500,600,0,,LOW
+MotorSupply Coimbatore,Motor-J10,Electrical,22,18,51,6,15,25,1,185000,HIGH""",
+
     "mlops": """Date,Model,Type,Status,Accuracy_Pct,Latency_P99_Ms,Data_Drift_Score,Retraining_Required,Issue
 2026-06-01,fraud-detector,inference,HEALTHY,94.2,45,0.04,NO,
 2026-06-02,churn-predictor,training,FAILED,,,0.51,YES,Training data 38pct null values

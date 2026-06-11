@@ -47,6 +47,8 @@ const DEMO_INDUSTRIES = [
   { value: "warehouse", label: "Warehouse & Inventory" },
   { value: "devops", label: "DevOps & Deployments" },
   { value: "mlops", label: "MLOps & Model Health" },
+  { value: "retail", label: "Retail & Store Analytics" },
+  { value: "supply_chain", label: "Supply Chain & Procurement" },
 ];
 
 export default function Upload() {
