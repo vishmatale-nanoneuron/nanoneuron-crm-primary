@@ -40,6 +40,9 @@ def _run_migrations() -> None:
         "CREATE INDEX IF NOT EXISTS idx_ops_subscriptions_user_id ON ops_subscriptions(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_ops_insights_unresolved ON ops_insights(report_id) WHERE resolved_at IS NULL",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_reports_share_token ON ops_reports(share_token) WHERE share_token IS NOT NULL",
+        # Cashfree payment gateway columns
+        "ALTER TABLE ops_subscriptions ADD COLUMN IF NOT EXISTS gateway_order_id VARCHAR(100)",
+        "ALTER TABLE ops_subscriptions ADD COLUMN IF NOT EXISTS gateway_payment_id VARCHAR(100)",
     ]
     try:
         with engine.connect() as conn:

@@ -10,21 +10,10 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 declare global {
   interface Window {
-    Razorpay: new (options: RazorpayOptions) => { open(): void };
+    Cashfree: (config: { mode: "sandbox" | "production" }) => {
+      checkout: (opts: { paymentSessionId: string; redirectTarget?: string }) => void;
+    };
   }
-}
-
-interface RazorpayOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  handler: (r: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => void;
-  prefill?: { email?: string };
-  theme?: { color: string };
-  modal?: { ondismiss?: () => void };
 }
 
 const PLANS = [
@@ -134,33 +123,10 @@ export default function Pricing() {
         throw new Error(err.detail || "Could not create payment order.");
       }
       const order = await res.json();
-      const rzp = new window.Razorpay({
-        key: order.key_id,
-        amount: order.amount,
-        currency: order.currency,
-        name: "OpsOracle AI",
-        description: order.plan_name,
-        order_id: order.order_id,
-        handler: async (response) => {
-          const verifyRes = await fetch(`${API}/payments/verify`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify(response),
-          });
-          if (verifyRes.ok) {
-            const data = await verifyRes.json();
-            setSuccess(`Payment successful! You are now on ${data.plan_tier}.`);
-            setCurrentPlan(data.plan_tier);
-            setTimeout(() => router.push("/dashboard"), 2500);
-          } else {
-            setError("Payment received but verification failed. Contact support with your payment ID.");
-          }
-          setLoading(null);
-        },
-        theme: { color: "#10b981" },
-        modal: { ondismiss: () => setLoading(null) },
-      });
-      rzp.open();
+      // Store token so the success page can verify after redirect
+      localStorage.setItem("ops_pending_order", order.order_id);
+      const cf = window.Cashfree({ mode: "production" });
+      cf.checkout({ paymentSessionId: order.payment_session_id, redirectTarget: "_self" });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setLoading(null);
@@ -169,7 +135,7 @@ export default function Pricing() {
 
   return (
     <>
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+      <Script src="https://sdk.cashfree.com/js/v3/cashfree.js" strategy="lazyOnload" />
       <Nav />
       <main className="min-h-screen bg-zinc-950 text-white px-6 py-16">
         <div className="mx-auto max-w-6xl">
@@ -304,7 +270,7 @@ export default function Pricing() {
               },
               {
                 q: "What payment methods are accepted?",
-                a: "All major Indian cards, UPI, and net banking via Razorpay. International cards also accepted.",
+                a: "All major Indian cards, UPI, net banking, and wallets via Cashfree. International cards also accepted.",
               },
               {
                 q: "I'm a startup. Can I get a discount?",

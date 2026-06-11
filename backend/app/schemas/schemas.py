@@ -126,17 +126,15 @@ class CreateOrderRequest(BaseModel):
 
 class CreateOrderResponse(BaseModel):
     order_id: str
+    payment_session_id: str
     amount: int
     currency: str
-    key_id: str
     plan_tier: str
     plan_name: str
 
 
 class VerifyPaymentRequest(BaseModel):
-    razorpay_order_id: str
-    razorpay_payment_id: str
-    razorpay_signature: str
+    order_id: str
 
 
 class PlanResponse(BaseModel):
