@@ -6,7 +6,7 @@ from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.config import settings
-from app.models.models import Report, Insight, User, IndustryBenchmark
+from app.models.models import Report, Insight, User, IndustryBenchmark, Subscription
 from app.schemas.schemas import (
     ReportResponse, InsightResponse, ResolveRequest,
     PublicDemoResponse, SharedReportResponse,
@@ -157,7 +157,25 @@ def _daily_used(db: Session, user_id) -> int:
     ).count()
 
 
+def _expire_trial_if_needed(db: Session, user: User) -> None:
+    """Downgrade to free when trial or paid subscription has expired."""
+    if (user.plan_tier or "free") == "free":
+        return
+    active_sub = (
+        db.query(Subscription)
+        .filter(Subscription.user_id == user.id, Subscription.status.in_(["active", "trial"]))
+        .order_by(Subscription.expires_at.desc())
+        .first()
+    )
+    if not active_sub or (active_sub.expires_at and active_sub.expires_at < datetime.utcnow()):
+        user.plan_tier = "free"
+        if active_sub:
+            active_sub.status = "expired"
+        db.commit()
+
+
 def _check_daily_limit(user: User, db: Session) -> None:
+    _expire_trial_if_needed(db, user)
     if (user.plan_tier or "free") != "free":
         return
     used = _daily_used(db, user.id)
