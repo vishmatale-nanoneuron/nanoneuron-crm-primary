@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getToken } from "@/lib/api";
@@ -8,7 +8,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type Status = "verifying" | "success" | "failed" | "pending";
 
-export default function PaymentSuccess() {
+function PaymentSuccessInner() {
   const params = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<Status>("verifying");
@@ -127,5 +127,17 @@ export default function PaymentSuccess() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccess() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-emerald-500/40 border-t-emerald-500 animate-spin" />
+      </div>
+    }>
+      <PaymentSuccessInner />
+    </Suspense>
   );
 }
