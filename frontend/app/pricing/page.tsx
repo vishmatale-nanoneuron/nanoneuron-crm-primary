@@ -275,7 +275,7 @@ export default function Pricing() {
               },
               {
                 q: "What payment methods are accepted?",
-                a: "All major Indian cards, UPI, net banking, and wallets via Instamojo. International cards also accepted.",
+                a: "UPI, all major Indian cards, and net banking via Cashfree. International credit/debit cards via Stripe.",
               },
               {
                 q: "I'm a startup. Can I get a discount?",

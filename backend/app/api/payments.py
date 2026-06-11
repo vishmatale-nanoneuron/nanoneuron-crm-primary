@@ -51,13 +51,13 @@ FREE_FEATURES = [
 
 # ── Cashfree ─────────────────────────────────────────────────
 
-CF_BASE_PROD = "https://api.cashfree.com/pg"
-CF_BASE_SANDBOX = "https://sandbox.cashfree.com/pg"
+CF_PL_PROD = "https://api.cashfree.com/pl"
+CF_PL_SANDBOX = "https://sandbox.cashfree.com/pl"
 CF_API_VERSION = "2023-08-01"
 
 
-def _cf_base() -> str:
-    return CF_BASE_SANDBOX if settings.CASHFREE_ENV == "sandbox" else CF_BASE_PROD
+def _cf_pl_base() -> str:
+    return CF_PL_SANDBOX if settings.CASHFREE_ENV == "sandbox" else CF_PL_PROD
 
 
 def _cf_headers() -> dict:
@@ -70,34 +70,37 @@ def _cf_headers() -> dict:
 
 
 def _create_cashfree_order(plan_tier: str, plan: dict, user: User) -> tuple[str, str]:
-    """Returns (order_id, payment_url)."""
+    """Creates a Cashfree Payment Link. Returns (link_id, link_url)."""
     import time
-    order_id = f"ops_{plan_tier}_{int(time.time())}_{str(user.id)[:8]}"
+    link_id = f"ops_{plan_tier}_{int(time.time())}_{str(user.id)[:8]}"
     resp = httpx.post(
-        f"{_cf_base()}/orders",
+        f"{_cf_pl_base()}/links",
         headers=_cf_headers(),
         json={
-            "order_id": order_id,
-            "order_amount": plan["price_inr"],
-            "order_currency": "INR",
+            "link_id": link_id,
+            "link_amount": plan["price_inr"],
+            "link_currency": "INR",
+            "link_purpose": f"OpsOracle {plan['label']} — 30-day access",
             "customer_details": {
                 "customer_id": str(user.id),
                 "customer_email": user.email,
                 "customer_phone": getattr(user, "phone", None) or "9999999999",
+                "customer_name": getattr(user, "company_name", None) or user.email,
             },
-            "order_meta": {
-                "return_url": f"{settings.APP_URL}/payment/success?order_id={{order_id}}&gateway=cashfree",
+            "link_meta": {
+                "return_url": f"{settings.APP_URL}/payment/success?order_id={link_id}&gateway=cashfree",
+                "upi_intent": False,
+            },
+            "link_notify": {
+                "send_sms": False,
+                "send_email": True,
             },
         },
         timeout=15,
     )
     resp.raise_for_status()
     cf = resp.json()
-    # Build payment URL from payment_session_id using Cashfree hosted checkout
-    session_id = cf["payment_session_id"]
-    base = "https://sandbox.cashfree.com" if settings.CASHFREE_ENV == "sandbox" else "https://payments.cashfree.com"
-    payment_url = f"{base}/order/#sessionid={session_id}"
-    return order_id, payment_url
+    return link_id, cf["link_url"]
 
 
 # ── Stripe ────────────────────────────────────────────────────
@@ -174,6 +177,7 @@ def create_order(
     sub = Subscription(
         user_id=user.id,
         plan_tier=plan_tier,
+        gateway=gateway,
         gateway_order_id=order_id,
         amount_paise=amount * 100,
         status="pending",
@@ -221,18 +225,18 @@ def verify_payment(
             raise HTTPException(status_code=503, detail="Cashfree not configured.")
         try:
             resp = httpx.get(
-                f"{_cf_base()}/orders/{order_id}",
+                f"{_cf_pl_base()}/links/{order_id}",
                 headers=_cf_headers(),
                 timeout=15,
             )
             resp.raise_for_status()
-            cf_order = resp.json()
+            cf_link = resp.json()
         except Exception as exc:
             logger.error("Cashfree verify error: %s", exc)
             raise HTTPException(status_code=502, detail="Could not verify payment.")
-        if cf_order.get("order_status") != "PAID":
-            raise HTTPException(status_code=400, detail=f"Payment not completed. Status: {cf_order.get('order_status')}")
-        payment_ref = cf_order.get("cf_order_id")
+        if cf_link.get("link_status") != "PAID":
+            raise HTTPException(status_code=400, detail=f"Payment not completed. Status: {cf_link.get('link_status')}")
+        payment_ref = cf_link.get("cf_link_id")
 
     sub = (
         db.query(Subscription)

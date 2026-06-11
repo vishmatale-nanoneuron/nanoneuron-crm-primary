@@ -68,6 +68,7 @@ class Subscription(Base):
     plan_tier = Column(String(20), nullable=False)
     razorpay_order_id = Column(String(100))
     razorpay_payment_id = Column(String(100))
+    gateway = Column(String(20))           # cashfree | stripe
     gateway_order_id = Column(String(100))
     gateway_payment_id = Column(String(100))
     amount_paise = Column(Integer, default=0)
