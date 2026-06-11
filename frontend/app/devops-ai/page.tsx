@@ -88,9 +88,21 @@ const metrics = [
   { value: "Free", label: "No credit card to start" },
 ];
 
+const faqJsonLd = {
+  "@context": "https://schema.org", "@type": "FAQPage",
+  mainEntity: [
+    { "@type": "Question", name: "What DORA metrics does OpsOracle AI analyze?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle scores all four DORA metrics from your deployment logs: deployment frequency, lead time for changes, change failure rate, and mean time to recovery (MTTR). It benchmarks your scores against DORA Elite, High, Medium and Low tiers." } },
+    { "@type": "Question", name: "How does OpsOracle correlate deployments to incidents?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle matches deployment timestamps against incident start times per service. When a deployment is followed by an incident on the same service within a configurable window, it flags the deploy as the probable cause and includes it in the change failure rate calculation." } },
+    { "@type": "Question", name: "What DevOps data formats can I upload to OpsOracle?", acceptedAnswer: { "@type": "Answer", text: "Upload deployment logs, CI/CD pipeline exports, incident reports or on-call event history as CSV. Any export from Jenkins, GitHub Actions, GitLab CI, PagerDuty or Jira works — no specific format required." } },
+    { "@type": "Question", name: "How can I reduce my change failure rate with AI?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle identifies the specific services with the highest rollback rates and correlates them with deployment patterns. It recommends which services need canary deployments, better test coverage, or staging gates — giving your platform team a prioritized fix list." } },
+    { "@type": "Question", name: "What is a good DORA metric score for a DevOps team?", acceptedAnswer: { "@type": "Answer", text: "DORA Elite performers deploy multiple times per day, have change failure rates below 15%, and recover from incidents in under one hour. OpsOracle scores your team against these benchmarks and shows you exactly which metric is dragging your tier down." } },
+  ],
+};
+
 export default function DevOpsAI() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold tracking-tight">

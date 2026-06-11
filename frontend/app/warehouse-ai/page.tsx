@@ -88,9 +88,21 @@ const metrics = [
   { value: "Free", label: "No credit card to start" },
 ];
 
+const faqJsonLd = {
+  "@context": "https://schema.org", "@type": "FAQPage",
+  mainEntity: [
+    { "@type": "Question", name: "How does AI detect warehouse stockouts before they happen?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle AI reads your inventory CSV or WMS export and calculates days-until-stockout per SKU by dividing current stock by daily demand velocity. It flags SKUs that will hit zero before the next restock arrives, given supplier lead times." } },
+    { "@type": "Question", name: "What warehouse data formats does OpsOracle support?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle accepts CSV, Excel and PDF exports from any WMS, ERP or inventory management system. No specific column format or template is required." } },
+    { "@type": "Question", name: "Can OpsOracle AI identify slow-moving and dead inventory?", acceptedAnswer: { "@type": "Answer", text: "Yes. OpsOracle calculates weeks-on-hand per SKU against actual sales velocity. It flags items with more than 12 weeks of stock, quantifies the working capital locked in slow movers, and recommends markdown timing." } },
+    { "@type": "Question", name: "How does OpsOracle calculate reorder points?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle compares your current reorder point setting against actual lead times and daily demand. It recommends revised reorder points for SKUs where the current setting leaves insufficient safety buffer." } },
+    { "@type": "Question", name: "Is warehouse AI software available for small businesses in India?", acceptedAnswer: { "@type": "Answer", text: "Yes. OpsOracle has a free tier with 3 warehouse analyses per day. Pro plans start at ₹999/month — affordable for businesses of any size." } },
+  ],
+};
+
 export default function WarehouseAI() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold tracking-tight">

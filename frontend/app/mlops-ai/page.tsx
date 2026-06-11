@@ -88,9 +88,21 @@ const metrics = [
   { value: "Free", label: "No credit card to start" },
 ];
 
+const faqJsonLd = {
+  "@context": "https://schema.org", "@type": "FAQPage",
+  mainEntity: [
+    { "@type": "Question", name: "How does OpsOracle detect machine learning model drift?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle reads your model monitoring logs and compares current accuracy, precision and recall against your baseline metrics. It calculates a data drift score by measuring feature distribution shift and flags models where drift exceeds your configured threshold." } },
+    { "@type": "Question", name: "What MLOps data can I upload to OpsOracle?", acceptedAnswer: { "@type": "Answer", text: "Upload model monitoring logs, training run histories, inference metrics or feature store health reports as CSV. Any export from MLflow, Weights and Biases, SageMaker Model Monitor or custom logging works." } },
+    { "@type": "Question", name: "How do I know when to retrain a machine learning model?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle tracks your model's accuracy trend over time and flags when it drops below your baseline threshold. It also detects feature drift scores that predict accuracy degradation before it is visible in output metrics, recommending proactive retraining." } },
+    { "@type": "Question", name: "What causes machine learning model degradation in production?", acceptedAnswer: { "@type": "Answer", text: "Common causes include data drift (input feature distributions shifting from training data), concept drift (the relationship between features and labels changing), training pipeline failures, feature store staleness and infrastructure changes. OpsOracle diagnoses which cause is most likely from your monitoring logs." } },
+    { "@type": "Question", name: "How do I monitor inference latency for ML models?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle tracks P50, P95 and P99 inference latency per model against your SLA targets. It flags breaches and correlates latency spikes with model version deployments or traffic volume changes to identify the root cause." } },
+  ],
+};
+
 export default function MLOpsAI() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold tracking-tight">

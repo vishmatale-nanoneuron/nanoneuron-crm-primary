@@ -88,9 +88,21 @@ const metrics = [
   { value: "Free", label: "No credit card to start" },
 ];
 
+const faqJsonLd = {
+  "@context": "https://schema.org", "@type": "FAQPage",
+  mainEntity: [
+    { "@type": "Question", name: "Can AI predict shipment delays before they happen?", acceptedAnswer: { "@type": "Answer", text: "Yes. OpsOracle AI reads your shipment CSV or TMS export and detects delay patterns — carrier-level, corridor-level and seasonal — before the delivery date is missed. It names the specific carrier or route causing the pattern and quantifies the financial risk." } },
+    { "@type": "Question", name: "Which Indian logistics carriers does OpsOracle AI support?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle detects patterns for BlueDart, DTDC, Delhivery, Ecom Express, XpressBees, Shadowfax, FedEx India and DHL India. It includes India-specific context like BlueDart Mumbai-Delhi dwell spikes, DTDC B2C surcharge issues and monsoon delay seasonality." } },
+    { "@type": "Question", name: "What file formats can I upload for logistics analysis?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle accepts CSV, Excel (.xlsx) and PDF files. Any export from your TMS, ERP or carrier portal works — no specific template or column format is required." } },
+    { "@type": "Question", name: "How accurate is AI shipment delay prediction?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle detects delay patterns with high confidence when carrier and route data is present. It assigns delay probability scores 0–100 per shipment and flags corridors where historical delay rates exceed 50%." } },
+    { "@type": "Question", name: "How much does logistics AI cost in India?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle has a free tier with 3 analyses per day. Pro plans start at ₹999/month — less than the cost of one delayed shipment penalty for most logistics companies." } },
+  ],
+};
+
 export default function LogisticsAI() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold tracking-tight">

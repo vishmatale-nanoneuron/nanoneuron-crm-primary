@@ -88,9 +88,21 @@ const metrics = [
   { value: "Free", label: "No credit card to start" },
 ];
 
+const faqJsonLd = {
+  "@context": "https://schema.org", "@type": "FAQPage",
+  mainEntity: [
+    { "@type": "Question", name: "How does AI improve OEE in manufacturing?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle AI reads shift reports and maintenance logs to score OEE components — availability, performance and quality — against target. It identifies which machine, shift or operator is driving the largest OEE gap and recommends specific corrective actions." } },
+    { "@type": "Question", name: "Can AI predict machine downtime before it happens?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle detects escalating downtime patterns in shift-over-shift maintenance logs. When a machine shows increasing downtime across consecutive shifts — a pattern that precedes catastrophic failure — it raises an alert before the unplanned stop occurs." } },
+    { "@type": "Question", name: "What manufacturing data can I upload to OpsOracle?", acceptedAnswer: { "@type": "Answer", text: "Upload shift reports, production logs, maintenance records, downtime logs or quality inspection data as CSV or Excel. OpsOracle reads any column format exported from your MES, ERP or manual tracking sheet." } },
+    { "@type": "Question", name: "How does OpsOracle detect production bottlenecks?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle identifies the single workstation, machine or shift creating the throughput constraint by analyzing actual output vs planned output per production unit. It names the bottleneck specifically — for example 'M2-Lathe running at 46% of planned output across all 3 shifts'." } },
+    { "@type": "Question", name: "What is the cost of manufacturing AI software in India?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle Pro starts at ₹999/month for unlimited manufacturing report analysis. A free tier with 3 analyses per day is available with no credit card required." } },
+  ],
+};
+
 export default function ManufacturingAI() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold tracking-tight">

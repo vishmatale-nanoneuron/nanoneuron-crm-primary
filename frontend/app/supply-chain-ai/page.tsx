@@ -88,9 +88,21 @@ const metrics = [
   { value: "Free", label: "No credit card to start" },
 ];
 
+const faqJsonLd = {
+  "@context": "https://schema.org", "@type": "FAQPage",
+  mainEntity: [
+    { "@type": "Question", name: "How does AI score supplier reliability in supply chain management?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle AI reads your supplier performance data and scores each vendor on on-time delivery rate, lead time variance (actual vs promised), and production impact. Suppliers are ranked from CRITICAL to LOW risk so your procurement team knows where to focus vendor management effort." } },
+    { "@type": "Question", name: "How can AI prevent production stoppages from supplier delays?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle calculates days-until-stockout for every component by combining current stock levels with each supplier's actual (not promised) lead time and historical OTD rate. It flags components that will hit zero before a reliable restock arrives, giving procurement time to expedite or dual-source." } },
+    { "@type": "Question", name: "What supply chain data can I upload to OpsOracle?", acceptedAnswer: { "@type": "Answer", text: "Upload supplier scorecards, open PO lists, component inventory reports or procurement logs as CSV or Excel. Any export from SAP, Oracle, Tally, or manual procurement tracking sheets works." } },
+    { "@type": "Question", name: "How does OpsOracle identify single-source supplier risk?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle flags components with only one active supplier, calculates the production impact if that supplier fails to deliver on time, and recommends which components to dual-source first based on lead time criticality and current OTD performance." } },
+    { "@type": "Question", name: "What is a good on-time delivery rate for a supplier in India?", acceptedAnswer: { "@type": "Answer", text: "Best-in-class Indian suppliers achieve 90%+ on-time delivery. OpsOracle benchmarks your suppliers against this threshold and flags any supplier below 75% OTD that is on the critical path for production components." } },
+  ],
+};
+
 export default function SupplyChainAI() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold tracking-tight">

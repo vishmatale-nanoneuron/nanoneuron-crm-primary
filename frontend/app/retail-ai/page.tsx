@@ -88,9 +88,21 @@ const metrics = [
   { value: "Free", label: "No credit card to start" },
 ];
 
+const faqJsonLd = {
+  "@context": "https://schema.org", "@type": "FAQPage",
+  mainEntity: [
+    { "@type": "Question", name: "How can AI prevent retail stockouts?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle AI reads your store inventory and sales data, calculates days-until-stockout per SKU based on real demand velocity, and flags items that will hit zero before the next restock arrives. It quantifies the daily revenue loss per stockout so your buying team can prioritize emergency POs." } },
+    { "@type": "Question", name: "How does AI identify dead inventory in retail?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle compares weeks-on-hand against actual weekly sales velocity per SKU. Items with more than 8–12 weeks of stock at current velocity are flagged as dead inventory, with working capital locked calculated in rupees." } },
+    { "@type": "Question", name: "What retail data can I upload to OpsOracle?", acceptedAnswer: { "@type": "Answer", text: "Upload store inventory exports, POS sales data, or stock replenishment reports as CSV or Excel. Any format from Shopify, Unicommerce, Vinculum, Increff or manual tracking sheets works." } },
+    { "@type": "Question", name: "How does OpsOracle measure demand forecast accuracy?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle compares your forecast quantity against actual weekly sales per SKU. It calculates forecast error percentage, identifies which SKUs were over-bought or under-bought by the largest margin, and recommends buy plan adjustments for the next season." } },
+    { "@type": "Question", name: "What is the cost of retail AI software in India?", acceptedAnswer: { "@type": "Answer", text: "OpsOracle Pro starts at ₹999/month for unlimited retail inventory analysis. A free tier with 3 analyses per day is available with no credit card required — suitable for single stores or small retail chains." } },
+  ],
+};
+
 export default function RetailAI() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold tracking-tight">
