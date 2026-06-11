@@ -116,7 +116,7 @@ export default function Upload() {
   return (
     <>
       <Nav />
-      <main className="p-8">
+      <main id="main-content" className="p-8">
         <div className="mb-8 flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-4xl font-bold">Upload Operations Report</h1>
@@ -165,10 +165,12 @@ export default function Upload() {
         <div className="card max-w-xl mb-4 border-emerald-500/20 bg-emerald-500/5">
           <p className="text-xs uppercase tracking-wider text-emerald-400/70 mb-3">No file? Try live sample data</p>
           <div className="flex gap-3 flex-wrap">
+            <label htmlFor="demo-industry" className="sr-only">Select industry for demo</label>
             <select
+              id="demo-industry"
               value={demoIndustry}
               onChange={e => setDemoIndustry(e.target.value)}
-              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
             >
               {DEMO_INDUSTRIES.map(d => (
                 <option key={d.value} value={d.value} className="bg-zinc-900">{d.label}</option>
@@ -206,7 +208,7 @@ export default function Upload() {
                 }}
                 className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60 hover:text-white hover:bg-white/10 transition-colors"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg aria-hidden="true" focusable="false" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 {label} template
@@ -222,21 +224,30 @@ export default function Upload() {
         </div>
 
         <form onSubmit={submit} className="card max-w-xl space-y-4">
-          <input
-            className="input"
-            type="file"
-            accept=".csv,.xlsx,.xls,.pdf"
-            onChange={e => setFile(e.target.files?.[0] || null)}
-            required
-            disabled={limitReached}
-          />
+          <div className="space-y-1">
+            <label htmlFor="report-file" className="block text-sm text-white/60">
+              Upload report <span aria-hidden="true" className="text-red-400">*</span>
+              <span className="sr-only">(required)</span>
+            </label>
+            <input
+              id="report-file"
+              className="input"
+              type="file"
+              accept=".csv,.xlsx,.xls,.pdf"
+              onChange={e => setFile(e.target.files?.[0] || null)}
+              required
+              disabled={limitReached}
+              aria-describedby="file-hint"
+            />
+            <p id="file-hint" className="text-xs text-white/30">CSV, Excel (.xlsx) or PDF — any format, no template needed</p>
+          </div>
           <button
             disabled={loading || limitReached}
             className="btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Analyzing with AI..." : limitReached ? "Daily limit reached — upgrade to continue" : "Analyze Report"}
           </button>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
           {!limitReached && usage && !usage.unlimited && (usage.remaining ?? 3) <= 1 && (
             <p className="text-yellow-400/70 text-xs text-center">
               {usage.remaining === 1 ? "Last free upload today." : "No free uploads left."}{" "}
@@ -246,7 +257,7 @@ export default function Upload() {
         </form>
 
         {insight && (
-          <section className="mt-10">
+          <section aria-label="AI analysis results" aria-live="polite" className="mt-10">
             {/* Data flywheel — Kai-Fu Lee principle #1 */}
             {(insight.benchmark_count ?? 0) > 0 && (
               <div className="mb-5 flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/8 px-5 py-3">

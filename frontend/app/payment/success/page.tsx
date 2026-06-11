@@ -60,18 +60,18 @@ function PaymentSuccessInner() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center px-6">
-      <div className="max-w-md w-full text-center">
+      <main id="main-content" className="max-w-md w-full text-center">
         {status === "verifying" && (
-          <>
-            <div className="h-12 w-12 rounded-full border-2 border-emerald-500/40 border-t-emerald-500 animate-spin mx-auto mb-6" />
+          <div role="status" aria-live="polite" aria-label="Verifying payment">
+            <div aria-hidden="true" className="h-12 w-12 rounded-full border-2 border-emerald-500/40 border-t-emerald-500 animate-spin mx-auto mb-6" />
             <h1 className="text-xl font-bold mb-2">Verifying your payment…</h1>
             <p className="text-white/40 text-sm">This takes just a second.</p>
-          </>
+          </div>
         )}
 
         {status === "success" && (
-          <>
-            <div className="h-16 w-16 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mx-auto mb-6">
+          <div role="status" aria-live="polite">
+            <div aria-hidden="true" className="h-16 w-16 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mx-auto mb-6">
               <span className="text-emerald-400 text-3xl">✓</span>
             </div>
             <h1 className="text-2xl font-bold mb-2">Payment Successful!</h1>
@@ -83,14 +83,14 @@ function PaymentSuccessInner() {
               href="/dashboard"
               className="inline-block rounded-xl bg-emerald-500 hover:bg-emerald-400 px-8 py-3 text-sm font-semibold text-white transition-colors"
             >
-              Go to Dashboard →
+              Go to Dashboard
             </Link>
-          </>
+          </div>
         )}
 
         {status === "pending" && (
-          <>
-            <div className="h-16 w-16 rounded-full bg-yellow-500/15 border border-yellow-500/40 flex items-center justify-center mx-auto mb-6">
+          <div role="status" aria-live="polite">
+            <div aria-hidden="true" className="h-16 w-16 rounded-full bg-yellow-500/15 border border-yellow-500/40 flex items-center justify-center mx-auto mb-6">
               <span className="text-yellow-400 text-3xl">⏳</span>
             </div>
             <h1 className="text-2xl font-bold mb-2">Payment Processing</h1>
@@ -101,12 +101,12 @@ function PaymentSuccessInner() {
             >
               Back to Pricing
             </Link>
-          </>
+          </div>
         )}
 
         {status === "failed" && (
-          <>
-            <div className="h-16 w-16 rounded-full bg-red-500/15 border border-red-500/40 flex items-center justify-center mx-auto mb-6">
+          <div role="alert">
+            <div aria-hidden="true" className="h-16 w-16 rounded-full bg-red-500/15 border border-red-500/40 flex items-center justify-center mx-auto mb-6">
               <span className="text-red-400 text-3xl">✗</span>
             </div>
             <h1 className="text-2xl font-bold mb-2">Payment Not Verified</h1>
@@ -125,9 +125,9 @@ function PaymentSuccessInner() {
                 Contact Support
               </a>
             </div>
-          </>
+          </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

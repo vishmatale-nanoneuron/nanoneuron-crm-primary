@@ -121,7 +121,7 @@ export default function ManufacturingAI() {
       <section aria-label="Hero" className="pt-32 pb-20 px-6">
         <div className="mx-auto max-w-5xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-sm text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Manufacturing & Plant Operations
           </div>
           <h1 className="text-5xl font-bold md:text-6xl leading-tight tracking-tight">
@@ -188,7 +188,7 @@ export default function ManufacturingAI() {
               { step: "03", title: "Act before production stops", desc: "Executive summary + 3 specific maintenance or scheduling actions delivered in under 30 seconds. Ready to share with the plant floor." },
             ].map((s) => (
               <div key={s.step} className="card relative overflow-hidden">
-                <div className="text-6xl font-bold text-white/5 absolute -top-2 -right-2 select-none">{s.step}</div>
+                <div aria-hidden="true" className="text-6xl font-bold text-white/5 absolute -top-2 -right-2 select-none">{s.step}</div>
                 <div className="text-emerald-400 text-sm font-mono mb-3">{s.step}</div>
                 <h3 className="font-semibold text-lg mb-2">{s.title}</h3>
                 <p className="text-white/55 text-sm leading-relaxed">{s.desc}</p>
@@ -211,7 +211,7 @@ export default function ManufacturingAI() {
       </section>
 
       </main>
-      <footer className="border-t border-white/8 px-6 py-10">
+      <footer aria-label="Site footer" className="border-t border-white/8 px-6 py-10">
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <Link href="/" className="text-sm font-semibold">
             <span className="text-emerald-400">Ops</span>Oracle AI

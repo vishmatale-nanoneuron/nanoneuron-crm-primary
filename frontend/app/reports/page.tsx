@@ -49,7 +49,7 @@ export default function Reports() {
   return (
     <>
       <Nav />
-      <main className="p-8 max-w-4xl mx-auto">
+      <main id="main-content" className="p-8 max-w-4xl mx-auto">
         <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-4xl font-bold">Reports</h1>

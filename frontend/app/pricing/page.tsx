@@ -127,12 +127,12 @@ export default function Pricing() {
   return (
     <>
       <Nav />
-      <main className="min-h-screen bg-zinc-950 text-white px-6 py-16">
+      <main id="main-content" className="min-h-screen bg-zinc-950 text-white px-6 py-16">
         <div className="mx-auto max-w-6xl">
           {/* Header */}
           <div className="text-center mb-14">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-sm text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Transparent Pricing
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">

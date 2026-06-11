@@ -92,7 +92,8 @@ export default function SharedReportPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       {/* Minimal nav */}
-      <nav className="border-b border-white/8 bg-zinc-950/80 backdrop-blur-md px-6 py-4">
+      <header>
+      <nav aria-label="Main navigation" className="border-b border-white/8 bg-zinc-950/80 backdrop-blur-md px-6 py-4">
         <div className="mx-auto max-w-5xl flex items-center justify-between">
           <Link href="/" className="text-lg font-bold tracking-tight">
             <span className="text-emerald-400">Ops</span>Oracle AI
@@ -107,8 +108,9 @@ export default function SharedReportPage() {
           </div>
         </div>
       </nav>
+      </header>
 
-      <main className="p-6 max-w-5xl mx-auto">
+      <main id="main-content" className="p-6 max-w-5xl mx-auto">
         {/* Header */}
         <div className="my-8">
           <div className="flex flex-wrap items-center gap-3 mb-2">

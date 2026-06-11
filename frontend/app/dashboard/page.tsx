@@ -72,7 +72,7 @@ export default function Dashboard() {
   return (
     <>
       <Nav />
-      <main className="p-8 max-w-6xl mx-auto">
+      <main id="main-content" className="p-8 max-w-6xl mx-auto">
         {/* Trial banner */}
         {showTrialBanner && (
           <div className={`mb-6 flex items-center justify-between gap-4 rounded-xl border px-5 py-4 ${
@@ -153,7 +153,7 @@ export default function Dashboard() {
         )}
 
         {/* Recent reports */}
-        <section className="card mt-6">
+        <section aria-label="Recent reports" className="card mt-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Recent Reports</h2>
             <Link href="/reports" className="text-sm text-emerald-400 hover:underline">View all →</Link>
