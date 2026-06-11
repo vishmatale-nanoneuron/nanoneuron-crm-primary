@@ -8,7 +8,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-def _digest_html(user_name: str, high_risk: int, total: int, top_pain: str, industry: str, app_url: str) -> str:
+def _digest_html(user_name: str, high_risk: int, total: int, top_pain: str, industry: str, app_url: str, risk_trend: str = "") -> str:
     week_label = datetime.utcnow().strftime("%B %d, %Y")
     risk_color = "#ef4444" if high_risk > 0 else "#10b981"
     risk_label = f"{high_risk} HIGH-RISK" if high_risk > 0 else "0 high-risk"
@@ -63,6 +63,16 @@ def _digest_html(user_name: str, high_risk: int, total: int, top_pain: str, indu
           </table>
         </td>
       </tr>
+
+      <!-- Risk Trend -->
+      {f'''<tr>
+        <td style="padding:0 40px 16px;">
+          <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:16px 20px;">
+            <p style="margin:0 0 4px;font-size:11px;color:#555;letter-spacing:1px;text-transform:uppercase;">Risk Trend</p>
+            <p style="margin:0;font-size:14px;color:#aaa;line-height:1.5;">{risk_trend}</p>
+          </div>
+        </td>
+      </tr>''' if risk_trend else ""}
 
       <!-- Top Pain -->
       {f'''<tr>
@@ -142,6 +152,34 @@ def send_weekly_digest(user: User, db: Session) -> bool:
     industries = [r.industry for r in recent_reports if r.industry]
     industry = max(set(industries), key=industries.count) if industries else "operations"
 
+    # Fix 5 — proactive risk trend: compare this week vs prior week
+    risk_trend = ""
+    if recent_insights:
+        this_week_avg = round(sum(i.risk_score for i in recent_insights) / len(recent_insights))
+        prior_week_start = week_ago - timedelta(days=7)
+        prior_report_ids = [
+            r.id for r in db.query(Report).filter(
+                Report.user_id == user.id,
+                Report.created_at >= prior_week_start,
+                Report.created_at < week_ago,
+            ).all()
+        ]
+        if prior_report_ids:
+            prior_insights = (
+                db.query(Insight)
+                .filter(Insight.report_id.in_(prior_report_ids))
+                .all()
+            )
+            if prior_insights:
+                prior_avg = round(sum(i.risk_score for i in prior_insights) / len(prior_insights))
+                delta = this_week_avg - prior_avg
+                if delta > 5:
+                    risk_trend = f"↑ Risk up {delta} pts this week (avg {this_week_avg}) vs last week (avg {prior_avg}) — operations deteriorating"
+                elif delta < -5:
+                    risk_trend = f"↓ Risk down {abs(delta)} pts this week (avg {this_week_avg}) vs last week (avg {prior_avg}) — operations improving"
+                else:
+                    risk_trend = f"→ Risk stable this week (avg {this_week_avg}) — consistent with last week (avg {prior_avg})"
+
     try:
         import resend
         resend.api_key = settings.RESEND_API_KEY
@@ -153,6 +191,7 @@ def send_weekly_digest(user: User, db: Session) -> bool:
             top_pain=top_pain,
             industry=industry.replace("_", " "),
             app_url=settings.APP_URL,
+            risk_trend=risk_trend,
         )
 
         resend.Emails.send({

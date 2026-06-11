@@ -20,6 +20,34 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 DAILY_FREE_LIMIT = 3
 _DEMO_CACHE: dict[str, dict] = {}  # in-memory per-industry cache for public demo
 
+
+def _compute_baseline(db: Session, user_id, industry: str, current_risk: int) -> tuple[int | None, str | None]:
+    """Fix 3 — Alibaba data moat: compare current analysis vs user's historical baseline.
+    Queries last 3 insights for the same user + industry. Returns (risk_delta, comparison_text).
+    """
+    prev = (
+        db.query(Insight)
+        .join(Report, Insight.report_id == Report.id)
+        .filter(Report.user_id == user_id, Insight.industry_detected == industry)
+        .order_by(Insight.created_at.desc())
+        .limit(3)
+        .all()
+    )
+    if not prev:
+        return None, None
+    avg_risk = round(sum(i.risk_score for i in prev) / len(prev))
+    delta = current_risk - avg_risk
+    count = len(prev)
+    period = "your last analysis" if count == 1 else f"your last {count} analyses"
+    label = industry.replace("_", " ")
+    if delta > 5:
+        text = f"↑ Risk up +{delta} pts vs {period} (avg {avg_risk}) — {label} operations deteriorating"
+    elif delta < -5:
+        text = f"↓ Risk down {abs(delta)} pts vs {period} (avg {avg_risk}) — {label} operations improving"
+    else:
+        text = f"→ Risk stable vs {period} (avg {avg_risk}) — {label} operations holding steady"
+    return delta, text
+
 DEMO_SAMPLES = {
     "logistics": """Shipment ID,Origin,Destination,Carrier,Scheduled Date,Actual Date,Status,Weight_kg,Cost_INR
 SH-1001,Mumbai,Delhi,BlueDart,2026-06-01,2026-06-04,Delayed,120,4200
@@ -231,9 +259,12 @@ def demo_analysis(
         int(result.get("inventory_risk", 0)),
     )
 
+    current_risk = int(result.get("risk_score", 0))
+    risk_delta, baseline_comparison = _compute_baseline(db, user.id, detected_industry, current_risk)
+
     insight = Insight(
         report_id=report.id,
-        risk_score=int(result.get("risk_score", 0)),
+        risk_score=current_risk,
         delay_probability=int(result.get("delay_probability", 0)),
         inventory_risk=int(result.get("inventory_risk", 0)),
         bottleneck_summary=result.get("bottleneck_summary", ""),
@@ -246,6 +277,9 @@ def demo_analysis(
         annual_savings_usd=int(result.get("annual_savings_usd", 0)),
         benchmark_count=benchmark_count,
         agi_analysis=is_premium,
+        analysis_method=result.get("analysis_method", "llm_groq"),
+        risk_delta=risk_delta,
+        baseline_comparison=baseline_comparison,
     )
     db.add(insight)
     db.commit()
@@ -300,9 +334,12 @@ async def upload_report(
         int(result.get("inventory_risk", 0)),
     )
 
+    current_risk = int(result.get("risk_score", 0))
+    risk_delta, baseline_comparison = _compute_baseline(db, user.id, industry, current_risk)
+
     insight = Insight(
         report_id=report.id,
-        risk_score=int(result.get("risk_score", 0)),
+        risk_score=current_risk,
         delay_probability=int(result.get("delay_probability", 0)),
         inventory_risk=int(result.get("inventory_risk", 0)),
         bottleneck_summary=result.get("bottleneck_summary", ""),
@@ -315,6 +352,9 @@ async def upload_report(
         annual_savings_usd=int(result.get("annual_savings_usd", 0)),
         benchmark_count=benchmark_count,
         agi_analysis=is_premium,
+        analysis_method=result.get("analysis_method", "llm_groq"),
+        risk_delta=risk_delta,
+        baseline_comparison=baseline_comparison,
     )
     db.add(insight)
     db.commit()

@@ -56,6 +56,11 @@ class Insight(Base):
     expert_reviewed = Column(Boolean, default=False, server_default="false")
     benchmark_count = Column(Integer, default=0, server_default="0")
     agi_analysis = Column(Boolean, default=False, server_default="false")
+    # Fix 1 — ByteDance telemetry: track which engine produced the analysis
+    analysis_method = Column(String(20), default="llm_groq", server_default="llm_groq")
+    # Fix 3 — Alibaba data moat: historical baseline comparison per org
+    risk_delta = Column(Integer, nullable=True)
+    baseline_comparison = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     report = relationship("Report", back_populates="insights")
 

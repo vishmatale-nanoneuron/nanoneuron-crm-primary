@@ -60,6 +60,9 @@ class InsightResponse(BaseModel):
     expert_reviewed: bool = False
     benchmark_count: int | None = None
     agi_analysis: bool = False
+    analysis_method: str = "llm_groq"
+    risk_delta: int | None = None
+    baseline_comparison: str | None = None
     created_at: datetime
 
     class Config:
@@ -98,6 +101,9 @@ class SharedInsightData(BaseModel):
     annual_savings_usd: int | None = None
     sub_vertical: str | None = None
     agi_analysis: bool = False
+    analysis_method: str = "llm_groq"
+    risk_delta: int | None = None
+    baseline_comparison: str | None = None
     created_at: datetime
 
     class Config:
