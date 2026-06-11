@@ -1,10 +1,16 @@
+import secrets
+import uuid as _uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
+from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.config import settings
 from app.models.models import Report, Insight, User, IndustryBenchmark
-from app.schemas.schemas import ReportResponse, InsightResponse, ResolveRequest
+from app.schemas.schemas import (
+    ReportResponse, InsightResponse, ResolveRequest,
+    PublicDemoResponse, SharedReportResponse,
+)
 from app.api.deps import get_current_user
 from app.services.file_parser import parse_uploaded_file
 from app.services.ai_service import analyze_operations, classify_sub_vertical
@@ -12,6 +18,7 @@ from app.services.ai_service import analyze_operations, classify_sub_vertical
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 DAILY_FREE_LIMIT = 3
+_DEMO_CACHE: dict[str, dict] = {}  # in-memory per-industry cache for public demo
 
 DEMO_SAMPLES = {
     "logistics": """Shipment ID,Origin,Destination,Carrier,Scheduled Date,Actual Date,Status,Weight_kg,Cost_INR
@@ -97,6 +104,45 @@ def _update_benchmark(db: Session, industry: str, risk: int, delay: int, invento
     return bench.report_count
 
 
+# ── Public endpoints (no auth) — must come before /{report_id} ──────────────
+
+@router.get("/public-demo", response_model=PublicDemoResponse)
+def public_demo(industry: str = "logistics"):
+    """Public live demo — no login needed. Result cached per industry in memory."""
+    industry = industry if industry in DEMO_SAMPLES else "logistics"
+    if industry not in _DEMO_CACHE:
+        text = DEMO_SAMPLES[industry]
+        result = analyze_operations(text)
+        result["industry"] = industry
+        _DEMO_CACHE[industry] = result
+    return _DEMO_CACHE[industry]
+
+
+@router.get("/shared/{share_token}", response_model=SharedReportResponse)
+def get_shared_report(share_token: str, db: Session = Depends(get_db)):
+    """Public shared report view — no auth required. Never exposes user or raw data."""
+    report = db.query(Report).filter(Report.share_token == share_token).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found or link has expired")
+    insight = (
+        db.query(Insight)
+        .filter(Insight.report_id == report.id)
+        .order_by(Insight.created_at.desc())
+        .first()
+    )
+    if not insight:
+        raise HTTPException(status_code=404, detail="No analysis found for this report")
+    return SharedReportResponse(
+        file_name=report.file_name,
+        industry=report.industry,
+        rows_count=report.rows_count or 0,
+        created_at=report.created_at,
+        insight=insight,
+    )
+
+
+# ── Auth-required endpoints ──────────────────────────────────────────────────
+
 @router.get("/demo", response_model=InsightResponse)
 def demo_analysis(
     industry: str = "logistics",
@@ -108,6 +154,7 @@ def demo_analysis(
     result = analyze_operations(text)
     detected_industry = result.get("industry_detected", industry)
     sub_vertical = result.get("sub_vertical") or classify_sub_vertical(detected_industry, text)
+    is_premium = (user.plan_tier or "free") in ("pro", "enterprise")
 
     report = Report(
         user_id=user.id,
@@ -142,6 +189,7 @@ def demo_analysis(
         vertical_ai_score=int(result.get("vertical_ai_score", 0)),
         annual_savings_usd=int(result.get("annual_savings_usd", 0)),
         benchmark_count=benchmark_count,
+        agi_analysis=is_premium,
     )
     db.add(insight)
     db.commit()
@@ -175,6 +223,7 @@ async def upload_report(
     result = analyze_operations(text)
     industry = result.get("industry_detected", "operations")
     sub_vertical = result.get("sub_vertical") or classify_sub_vertical(industry, text)
+    is_premium = (user.plan_tier or "free") in ("pro", "enterprise")
 
     report = Report(
         user_id=user.id,
@@ -209,6 +258,7 @@ async def upload_report(
         vertical_ai_score=int(result.get("vertical_ai_score", 0)),
         annual_savings_usd=int(result.get("annual_savings_usd", 0)),
         benchmark_count=benchmark_count,
+        agi_analysis=is_premium,
     )
     db.add(insight)
     db.commit()
@@ -224,7 +274,11 @@ def list_reports(db: Session = Depends(get_db), user: User = Depends(get_current
 
 @router.get("/{report_id}", response_model=ReportResponse)
 def get_report(report_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    report = db.query(Report).filter(Report.id == report_id, Report.user_id == user.id).first()
+    try:
+        report = db.query(Report).filter(Report.id == report_id, Report.user_id == user.id).first()
+    except DataError:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Report not found")
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     return report
@@ -232,7 +286,11 @@ def get_report(report_id: str, db: Session = Depends(get_db), user: User = Depen
 
 @router.get("/{report_id}/insights", response_model=list[InsightResponse])
 def report_insights(report_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    report = db.query(Report).filter(Report.id == report_id, Report.user_id == user.id).first()
+    try:
+        report = db.query(Report).filter(Report.id == report_id, Report.user_id == user.id).first()
+    except DataError:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Report not found")
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     return db.query(Insight).filter(Insight.report_id == report.id).order_by(Insight.created_at.desc()).all()
@@ -278,3 +336,22 @@ def mark_expert_reviewed(
     db.commit()
     db.refresh(insight)
     return insight
+
+
+@router.post("/{report_id}/share")
+def share_report(
+    report_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Generate a public share link for a report. Idempotent — repeated calls return the same token."""
+    report = db.query(Report).filter(Report.id == report_id, Report.user_id == user.id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not report.share_token:
+        report.share_token = secrets.token_urlsafe(9)  # 12 URL-safe chars
+        db.commit()
+    return {
+        "share_token": report.share_token,
+        "share_url": f"{settings.APP_URL}/shared/{report.share_token}",
+    }

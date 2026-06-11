@@ -29,6 +29,7 @@ class Report(Base):
     extracted_text = Column(Text)
     rows_count = Column(Integer, default=0)
     industry = Column(String(50))
+    share_token = Column(String(20), nullable=True, unique=True)
     created_at = Column(DateTime, server_default=func.now())
     user = relationship("User", back_populates="reports")
     insights = relationship("Insight", back_populates="report", cascade="all, delete")
@@ -54,6 +55,7 @@ class Insight(Base):
     resolution_note = Column(String(500), nullable=True)
     expert_reviewed = Column(Boolean, default=False, server_default="false")
     benchmark_count = Column(Integer, default=0, server_default="0")
+    agi_analysis = Column(Boolean, default=False, server_default="false")
     created_at = Column(DateTime, server_default=func.now())
     report = relationship("Report", back_populates="insights")
 

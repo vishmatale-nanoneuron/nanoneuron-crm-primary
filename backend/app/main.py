@@ -31,11 +31,15 @@ def _run_migrations() -> None:
         # Monday Morning Email digest preference
         "ALTER TABLE ops_users ADD COLUMN IF NOT EXISTS email_digest BOOLEAN DEFAULT TRUE",
         "ALTER TABLE ops_users ADD COLUMN IF NOT EXISTS last_digest_sent_at TIMESTAMP",
+        # Shareable report links + AGI premium tier
+        "ALTER TABLE ops_reports ADD COLUMN IF NOT EXISTS share_token VARCHAR(20)",
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS agi_analysis BOOLEAN DEFAULT FALSE",
         # Indexes
         "CREATE INDEX IF NOT EXISTS idx_ops_reports_user_id ON ops_reports(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_ops_insights_report_id ON ops_insights(report_id)",
         "CREATE INDEX IF NOT EXISTS idx_ops_subscriptions_user_id ON ops_subscriptions(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_ops_insights_unresolved ON ops_insights(report_id) WHERE resolved_at IS NULL",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_reports_share_token ON ops_reports(share_token) WHERE share_token IS NOT NULL",
     ]
     try:
         with engine.connect() as conn:
@@ -48,7 +52,7 @@ def _run_migrations() -> None:
 
 _run_migrations()
 
-app = FastAPI(title="OpsOracle AI API", version="3.1.0", redirect_slashes=False)
+app = FastAPI(title="OpsOracle AI API", version="3.2.0", redirect_slashes=False)
 
 origins = [
     "https://nanoneuron.ai",
@@ -73,4 +77,4 @@ app.include_router(digest.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "product": "OpsOracle AI", "version": "3.1.0"}
+    return {"status": "ok", "product": "OpsOracle AI", "version": "3.2.0"}

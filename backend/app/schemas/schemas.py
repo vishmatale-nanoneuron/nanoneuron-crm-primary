@@ -59,6 +59,7 @@ class InsightResponse(BaseModel):
     resolution_note: str | None = None
     expert_reviewed: bool = False
     benchmark_count: int | None = None
+    agi_analysis: bool = False
     created_at: datetime
 
     class Config:
@@ -67,6 +68,48 @@ class InsightResponse(BaseModel):
 
 class ResolveRequest(BaseModel):
     note: str = ""
+
+
+# Public endpoints — no user/auth fields exposed
+class PublicDemoResponse(BaseModel):
+    risk_score: int = 0
+    delay_probability: int = 0
+    inventory_risk: int = 0
+    bottleneck_summary: str | None = None
+    executive_summary: str | None = None
+    recommendations: str | None = None
+    industry_detected: str | None = None
+    cost_impact_usd: int | None = None
+    vertical_ai_score: int | None = None
+    annual_savings_usd: int | None = None
+    sub_vertical: str | None = None
+
+
+class SharedInsightData(BaseModel):
+    risk_score: int = 0
+    delay_probability: int = 0
+    inventory_risk: int = 0
+    bottleneck_summary: str | None = None
+    executive_summary: str | None = None
+    recommendations: str | None = None
+    industry_detected: str | None = None
+    cost_impact_usd: int | None = None
+    vertical_ai_score: int | None = None
+    annual_savings_usd: int | None = None
+    sub_vertical: str | None = None
+    agi_analysis: bool = False
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SharedReportResponse(BaseModel):
+    file_name: str
+    industry: str | None = None
+    rows_count: int = 0
+    created_at: datetime
+    insight: SharedInsightData
 
 
 class BenchmarkResponse(BaseModel):
