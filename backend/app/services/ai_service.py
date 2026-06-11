@@ -177,6 +177,13 @@ def _fallback_analysis(text: str, industry: str) -> dict:
             f"Step 4: Estimated cost exposure: {rows} rows × industry multiplier = ₹{cost * 83:,} at risk",
             "Step 5: Regex fallback cannot determine root cause — LLM engine required for causal reasoning",
         ]),
+        "causal_chain": json.dumps({
+            "root_cause": f"Keyword signals detected in {rows} rows — specific root cause requires LLM analysis",
+            "trigger": f"{delay_hits} delay + {bottle_hits} bottleneck signals exceeded normal thresholds",
+            "cascade": ["Operational risk elevated — specific downstream effects require LLM analysis"],
+            "intervention_window": "Review all flagged rows — LLM engine required for specific intervention recommendations",
+            "if_ignored": "Detected signals may compound — specific trajectory requires LLM analysis",
+        }),
         "industry_detected": industry,
         "sub_vertical": sub_vertical,
         "cost_impact_usd": cost,
@@ -279,6 +286,13 @@ agi_reasoning: JSON array of EXACTLY 5 strings — your step-by-step reasoning c
  "Step 4: Financial exposure: <show the calculation — N items × avg value = total ₹>",
  "Step 5: Root cause and intervention: <causal reasoning for why the top recommendation is the correct fix>"]
 
+causal_chain: JSON object — causal analysis GROUNDED IN THIS DATA ONLY. Never fabricate facts not visible in the data.
+{{"root_cause": "underlying condition causing this — named specifically (machine, route, supplier, SKU) with evidence from data",
+  "trigger": "specific event this period that crossed a failure threshold — cite what you see in the data",
+  "cascade": ["downstream effect 1 visible in data", "effect 2 if data supports it — max 3 items, omit if not evidenced"],
+  "intervention_window": "time-sensitive action before this worsens — specific action, owner, and timing from data context",
+  "if_ignored": "honest trajectory from current data patterns — qualitative direction only, no fabricated numbers"}}
+
 industry_detected: one of: logistics | manufacturing | warehouse | retail | supply_chain | devops | mlops | operations
 
 cost_impact_usd: integer — total USD at risk this period. 0 if no issues found. Ground this in actual row data where possible.
@@ -299,7 +313,7 @@ DATA TO ANALYZE:
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
-            max_tokens=3000,
+            max_tokens=3500,
             response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content or "{}"
@@ -331,6 +345,13 @@ DATA TO ANALYZE:
             result["agi_reasoning"] = json.dumps(ar)
         elif not isinstance(ar, str):
             result["agi_reasoning"] = json.dumps([])
+
+        # Ensure causal_chain is a valid JSON string
+        cc = result.get("causal_chain")
+        if isinstance(cc, dict):
+            result["causal_chain"] = json.dumps(cc)
+        elif not isinstance(cc, str):
+            result["causal_chain"] = json.dumps({})
 
         # Annual savings: use LLM value if present and non-zero, else industry multiplier
         if not result.get("annual_savings_usd"):

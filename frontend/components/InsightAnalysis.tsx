@@ -28,6 +28,15 @@ export type InsightData = {
   confidence_level?: string | null;
   data_quality_issues?: string | null;
   agi_reasoning?: string | null;
+  causal_chain?: string | null;
+};
+
+type CausalChainData = {
+  root_cause: string;
+  trigger: string;
+  cascade: string[];
+  intervention_window: string;
+  if_ignored?: string;
 };
 
 type ActionCard = {
@@ -147,6 +156,66 @@ function EvidenceSection({ evidence }: { evidence: string | null | undefined }) 
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function CausalChainFlow({ chain }: { chain: string | null | undefined }) {
+  const data = parseJson<CausalChainData | null>(chain, null);
+  if (!data || !data.root_cause) return null;
+  const cascade = Array.isArray(data.cascade) ? data.cascade : [];
+  return (
+    <div className="rounded-xl border border-orange-500/15 bg-orange-500/5 p-5 print:border-orange-200">
+      <h3 className="font-semibold text-sm text-orange-400 mb-4 flex items-center gap-2 print:text-orange-700">
+        <span aria-hidden="true">🔗</span>
+        Causal Chain — why this is happening and where it leads
+      </h3>
+      <div className="space-y-1">
+        <div className="flex items-start gap-3">
+          <span className="shrink-0 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-semibold px-2 py-0.5 whitespace-nowrap mt-0.5 print:bg-red-100 print:text-red-700">
+            Root Cause
+          </span>
+          <span className="text-sm text-white/75 leading-relaxed print:text-gray-700">{data.root_cause}</span>
+        </div>
+        <div className="pl-4 text-white/20 text-xs select-none">↓</div>
+        <div className="flex items-start gap-3">
+          <span className="shrink-0 rounded-full bg-orange-500/20 border border-orange-500/30 text-orange-400 text-xs font-semibold px-2 py-0.5 whitespace-nowrap mt-0.5 print:bg-orange-100 print:text-orange-700">
+            Trigger
+          </span>
+          <span className="text-sm text-white/75 leading-relaxed print:text-gray-700">{data.trigger}</span>
+        </div>
+        {cascade.length > 0 && (
+          <>
+            <div className="pl-4 text-white/20 text-xs select-none">↓</div>
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 rounded-full bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-xs font-semibold px-2 py-0.5 whitespace-nowrap mt-0.5 print:bg-yellow-100 print:text-yellow-700">
+                Cascade
+              </span>
+              <ul className="space-y-1">
+                {cascade.map((effect, i) => (
+                  <li key={i} className="text-sm text-white/75 leading-relaxed print:text-gray-700 flex items-start gap-1.5">
+                    <span aria-hidden="true" className="text-yellow-500/50 mt-0.5 shrink-0">•</span>
+                    {effect}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
+        <div className="pl-4 text-white/20 text-xs select-none">↓</div>
+        <div className="flex items-start gap-3">
+          <span className="shrink-0 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold px-2 py-0.5 whitespace-nowrap mt-0.5 print:bg-emerald-100 print:text-emerald-700">
+            Act Now
+          </span>
+          <span className="text-sm text-white/75 leading-relaxed print:text-gray-700">{data.intervention_window}</span>
+        </div>
+        {data.if_ignored && (
+          <div className="mt-3 rounded-lg bg-white/3 border border-white/8 px-4 py-2.5 print:border-gray-200 print:bg-gray-50">
+            <p className="text-xs text-white/35 mb-1 print:text-gray-500">If not addressed</p>
+            <p className="text-sm text-white/55 print:text-gray-600">{data.if_ignored}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -324,6 +393,9 @@ export default function InsightAnalysis({ insight, showBenchmarkBadge = true, sh
           <h3 className="font-semibold text-lg print:text-gray-900">Executive Summary</h3>
           <p className="mt-2 text-white/70 leading-relaxed print:text-gray-700">{insight.executive_summary}</p>
         </div>
+
+        {/* Causal Chain — root cause to intervention window */}
+        <CausalChainFlow chain={insight.causal_chain} />
 
         {/* Evidence — "What the AI saw" */}
         <EvidenceSection evidence={insight.evidence} />

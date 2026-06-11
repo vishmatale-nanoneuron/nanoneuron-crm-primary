@@ -56,6 +56,8 @@ def _run_migrations() -> None:
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS data_quality_issues TEXT",
         # v3.5.0 Vertical AGI: chain-of-thought reasoning trace
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS agi_reasoning TEXT",
+        # v3.6.0 Causal Chain: root cause → trigger → cascade → intervention window
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS causal_chain TEXT",
     ]
     try:
         with engine.connect() as conn:
@@ -68,7 +70,7 @@ def _run_migrations() -> None:
 
 _run_migrations()
 
-app = FastAPI(title="OpsOracle AI API", version="3.5.0", redirect_slashes=False)
+app = FastAPI(title="OpsOracle AI API", version="3.6.0", redirect_slashes=False)
 
 origins = [
     "https://nanoneuron.ai",
@@ -93,4 +95,4 @@ app.include_router(digest.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "product": "OpsOracle AI", "version": "3.5.0"}
+    return {"status": "ok", "product": "OpsOracle AI", "version": "3.6.0"}

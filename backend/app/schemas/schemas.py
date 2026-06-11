@@ -68,6 +68,7 @@ class InsightResponse(BaseModel):
     confidence_level: str | None = None
     data_quality_issues: str | None = None
     agi_reasoning: str | None = None
+    causal_chain: str | None = None
     created_at: datetime
 
     class Config:
@@ -114,6 +115,7 @@ class SharedInsightData(BaseModel):
     confidence_level: str | None = None
     data_quality_issues: str | None = None
     agi_reasoning: str | None = None
+    causal_chain: str | None = None
     created_at: datetime
 
     class Config:
