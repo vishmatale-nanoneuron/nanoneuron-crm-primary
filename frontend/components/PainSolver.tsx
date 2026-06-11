@@ -21,7 +21,7 @@ const colorMap = {
 
 export function PainSolver({ pains, industry }: { pains: Pain[]; industry: string }) {
   return (
-    <section className="px-6 py-20 border-t border-white/8">
+    <section aria-label="AI scenarios" className="px-6 py-20 border-t border-white/8">
       <div className="mx-auto max-w-5xl">
         <div className="text-center mb-14">
           <p className="text-xs uppercase tracking-widest text-red-400/70 mb-3">Real Pain → AI Solves It</p>

@@ -103,7 +103,8 @@ export default function LogisticsAI() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
+      <header>
+      <nav aria-label="Main navigation" className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold tracking-tight">
             <span className="text-emerald-400">Ops</span>Oracle AI
@@ -114,8 +115,10 @@ export default function LogisticsAI() {
           </div>
         </div>
       </nav>
+      </header>
 
-      <section className="pt-32 pb-20 px-6">
+      <main id="main-content">
+      <section aria-label="Hero" className="pt-32 pb-20 px-6">
         <div className="mx-auto max-w-5xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-sm text-emerald-400">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -139,7 +142,7 @@ export default function LogisticsAI() {
         </div>
       </section>
 
-      <section className="px-6 pb-16">
+      <section aria-label="Key metrics" className="px-6 pb-16">
         <div className="mx-auto max-w-5xl grid grid-cols-2 md:grid-cols-4 gap-4">
           {metrics.map((m) => (
             <div key={m.label} className="card text-center">
@@ -150,7 +153,7 @@ export default function LogisticsAI() {
         </div>
       </section>
 
-      <section className="px-6 py-20 border-t border-white/8">
+      <section aria-label="Capabilities" className="px-6 py-20 border-t border-white/8">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-14">
             <p className="text-sm uppercase tracking-widest text-emerald-400/70 mb-3">Logistics AI Capabilities</p>
@@ -173,7 +176,7 @@ export default function LogisticsAI() {
 
       <PainSolver pains={LOGISTICS_PAINS} industry="Logistics" />
 
-      <section className="px-6 py-20 border-t border-white/8">
+      <section aria-label="How it works" className="px-6 py-20 border-t border-white/8">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold">How logistics teams use OpsOracle AI</h2>
@@ -195,7 +198,7 @@ export default function LogisticsAI() {
         </div>
       </section>
 
-      <section className="px-6 py-24 border-t border-white/8">
+      <section aria-label="Get started" className="px-6 py-24 border-t border-white/8">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-4xl font-bold mb-6">Stop discovering delays after the customer complains.</h2>
           <p className="text-white/55 text-lg mb-10">
@@ -207,6 +210,7 @@ export default function LogisticsAI() {
         </div>
       </section>
 
+      </main>
       <footer className="border-t border-white/8 px-6 py-10">
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <Link href="/" className="text-sm font-semibold">

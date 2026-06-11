@@ -142,7 +142,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           strategy="beforeInteractive"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <a href="#main-content" className="skip-nav">Skip to main content</a>
+        {children}
+      </body>
     </html>
   );
 }

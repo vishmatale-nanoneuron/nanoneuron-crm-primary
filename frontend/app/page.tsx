@@ -48,11 +48,12 @@ const industries = [
 export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
+      <header>
+      <nav aria-label="Main navigation" className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <span className="text-lg font-bold tracking-tight">
+          <Link href="/" className="text-lg font-bold tracking-tight" aria-label="OpsOracle AI home">
             <span className="text-emerald-400">Ops</span>Oracle AI
-          </span>
+          </Link>
           <div className="flex items-center gap-4">
             <Link href="/logistics-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">Logistics</Link>
             <Link href="/manufacturing-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">Manufacturing</Link>
@@ -67,9 +68,11 @@ export default function Home() {
           </div>
         </div>
       </nav>
+      </header>
 
+      <main id="main-content">
       {/* Hero — pain first */}
-      <section className="pt-32 pb-20 px-6">
+      <section aria-label="Hero" className="pt-32 pb-20 px-6">
         <div className="mx-auto max-w-5xl">
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/8 px-4 py-1.5 text-sm text-red-400">
             <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
@@ -118,7 +121,7 @@ export default function Home() {
       </section>
 
       {/* Stats */}
-      <section className="px-6 pb-16">
+      <section aria-label="Key metrics" className="px-6 pb-16">
         <div className="mx-auto max-w-5xl grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { value: "< 30s", label: "Analysis time" },
@@ -141,7 +144,7 @@ export default function Home() {
       <PainSolver pains={HOMEPAGE_PAINS} industry="Operations" />
 
       {/* How it works */}
-      <section className="px-6 py-20 border-t border-white/8">
+      <section aria-label="How it works" className="px-6 py-20 border-t border-white/8">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-14">
             <p className="text-sm uppercase tracking-widest text-emerald-400/70 mb-3">How it works</p>
@@ -165,7 +168,7 @@ export default function Home() {
       </section>
 
       {/* Industry verticals */}
-      <section className="px-6 py-20 border-t border-white/8">
+      <section aria-label="Industry solutions" className="px-6 py-20 border-t border-white/8">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
             <p className="text-sm uppercase tracking-widest text-emerald-400/70 mb-3">Industry Solutions</p>
@@ -187,7 +190,7 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="px-6 py-24 border-t border-white/8">
+      <section aria-label="Get started" className="px-6 py-24 border-t border-white/8">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
             Stop finding out about<br />
@@ -203,6 +206,7 @@ export default function Home() {
         </div>
       </section>
 
+      </main>
       <footer className="border-t border-white/8 px-6 py-10">
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="text-sm font-semibold"><span className="text-emerald-400">Ops</span>Oracle AI</span>

@@ -32,11 +32,20 @@ export default function Register() {
       <h1 className="mb-2 text-3xl font-bold">Create Account</h1>
       <p className="mb-8 text-white/50">Start predicting operational risks today</p>
       <form onSubmit={submit} className="card space-y-4">
-        <input className="input" type="email" placeholder="Work Email" value={email} onChange={e => setEmail(e.target.value)} required />
-        <input className="input" placeholder="Company Name" value={company} onChange={e => setCompany(e.target.value)} required />
-        <input className="input" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
+        <div className="space-y-1">
+          <label htmlFor="reg-email" className="block text-sm text-white/60">Work Email</label>
+          <input id="reg-email" className="input" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="reg-company" className="block text-sm text-white/60">Company Name</label>
+          <input id="reg-company" className="input" placeholder="Acme Corp" value={company} onChange={e => setCompany(e.target.value)} required autoComplete="organization" />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="reg-password" className="block text-sm text-white/60">Password</label>
+          <input id="reg-password" className="input" type="password" placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="new-password" />
+        </div>
         <button className="btn w-full" disabled={loading}>{loading ? "Creating account..." : "Create Account"}</button>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
       </form>
       <p className="mt-6 text-center text-white/50 text-sm">
         Have an account? <Link href="/login" className="text-emerald-400 hover:underline">Login</Link>
