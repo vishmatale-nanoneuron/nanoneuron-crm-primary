@@ -126,7 +126,7 @@ class CreateOrderRequest(BaseModel):
 
 class CreateOrderResponse(BaseModel):
     order_id: str
-    payment_session_id: str
+    payment_url: str
     amount: int
     currency: str
     plan_tier: str

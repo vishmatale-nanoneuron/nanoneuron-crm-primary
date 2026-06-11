@@ -2,7 +2,7 @@ import logging
 import time
 import httpx
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.config import settings
@@ -13,9 +13,8 @@ from app.api.deps import get_current_user
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/payments", tags=["payments"])
 
-CASHFREE_BASE = "https://api.cashfree.com/pg"
-CASHFREE_SANDBOX = "https://sandbox.cashfree.com/pg"
-CF_API_VERSION = "2023-08-01"
+INSTAMOJO_BASE = "https://api.instamojo.com"
+INSTAMOJO_SANDBOX = "https://test.instamojo.com"
 
 PLANS = {
     "pro": {
@@ -53,17 +52,23 @@ FREE_FEATURES = [
 ]
 
 
-def _cf_headers() -> dict:
-    return {
-        "x-client-id": settings.CASHFREE_APP_ID,
-        "x-client-secret": settings.CASHFREE_SECRET_KEY,
-        "x-api-version": CF_API_VERSION,
-        "Content-Type": "application/json",
-    }
+def _im_base() -> str:
+    return INSTAMOJO_SANDBOX if settings.INSTAMOJO_ENV == "sandbox" else INSTAMOJO_BASE
 
 
-def _cf_base() -> str:
-    return CASHFREE_SANDBOX if settings.CASHFREE_ENV == "sandbox" else CASHFREE_BASE
+def _im_token() -> str:
+    """Get Instamojo OAuth2 access token."""
+    resp = httpx.post(
+        f"{_im_base()}/oauth2/token/",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": settings.INSTAMOJO_CLIENT_ID,
+            "client_secret": settings.INSTAMOJO_CLIENT_SECRET,
+        },
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
 
 
 @router.post("/create-order", response_model=CreateOrderResponse)
@@ -75,45 +80,43 @@ def create_order(
     plan_tier = body.plan_tier.lower()
     if plan_tier not in PLANS:
         raise HTTPException(status_code=400, detail=f"Invalid plan. Choose: {list(PLANS)}")
-    if not settings.CASHFREE_APP_ID or not settings.CASHFREE_SECRET_KEY:
+    if not settings.INSTAMOJO_CLIENT_ID or not settings.INSTAMOJO_CLIENT_SECRET:
         raise HTTPException(status_code=503, detail="Payment gateway not configured yet.")
 
     plan = PLANS[plan_tier]
-    order_id = f"ops_{plan_tier}_{int(time.time())}_{str(user.id)[:8]}"
 
     try:
+        token = _im_token()
         resp = httpx.post(
-            f"{_cf_base()}/orders",
-            headers=_cf_headers(),
-            json={
-                "order_id": order_id,
-                "order_amount": plan["price_inr"],
-                "order_currency": "INR",
-                "customer_details": {
-                    "customer_id": str(user.id),
-                    "customer_email": user.email,
-                    "customer_phone": getattr(user, "phone", None) or "9999999999",
-                },
-                "order_meta": {
-                    "return_url": f"{settings.APP_URL}/payment/success?order_id={{order_id}}",
-                },
-                "order_note": f"{plan['label']} — OpsOracle AI",
+            f"{_im_base()}/v2/payment_requests/",
+            headers={"Authorization": f"Bearer {token}"},
+            data={
+                "purpose": f"{plan['label']} — OpsOracle AI",
+                "amount": str(plan["price_inr"]),
+                "buyer_name": getattr(user, "company_name", "") or user.email.split("@")[0],
+                "email": user.email,
+                "redirect_url": f"{settings.APP_URL}/payment/success",
+                "allow_repeated_payments": "False",
+                "send_email": "False",
+                "send_sms": "False",
             },
             timeout=15,
         )
         resp.raise_for_status()
-        cf_order = resp.json()
+        im_order = resp.json()
     except httpx.HTTPStatusError as exc:
-        logger.error("Cashfree order creation failed: %s %s", exc.response.status_code, exc.response.text)
+        logger.error("Instamojo order creation failed: %s %s", exc.response.status_code, exc.response.text)
         raise HTTPException(status_code=502, detail="Payment gateway error. Try again.")
     except Exception as exc:
-        logger.error("Cashfree error: %s", exc)
+        logger.error("Instamojo error: %s", exc)
         raise HTTPException(status_code=502, detail="Payment gateway error. Try again.")
+
+    payment_request_id = im_order["id"]
 
     sub = Subscription(
         user_id=user.id,
         plan_tier=plan_tier,
-        gateway_order_id=order_id,
+        gateway_order_id=payment_request_id,
         amount_paise=plan["price_inr"] * 100,
         status="pending",
     )
@@ -121,8 +124,8 @@ def create_order(
     db.commit()
 
     return CreateOrderResponse(
-        order_id=order_id,
-        payment_session_id=cf_order["payment_session_id"],
+        order_id=payment_request_id,
+        payment_url=im_order["longurl"],
         amount=plan["price_inr"],
         currency="INR",
         plan_tier=plan_tier,
@@ -136,25 +139,29 @@ def verify_payment(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if not settings.CASHFREE_APP_ID or not settings.CASHFREE_SECRET_KEY:
+    if not settings.INSTAMOJO_CLIENT_ID or not settings.INSTAMOJO_CLIENT_SECRET:
         raise HTTPException(status_code=503, detail="Payment gateway not configured.")
 
     try:
+        token = _im_token()
         resp = httpx.get(
-            f"{_cf_base()}/orders/{body.order_id}",
-            headers=_cf_headers(),
+            f"{_im_base()}/v2/payment_requests/{body.order_id}/",
+            headers={"Authorization": f"Bearer {token}"},
             timeout=15,
         )
         resp.raise_for_status()
-        cf_order = resp.json()
+        im_order = resp.json()
     except Exception as exc:
-        logger.error("Cashfree order fetch failed: %s", exc)
+        logger.error("Instamojo verify failed: %s", exc)
         raise HTTPException(status_code=502, detail="Could not verify payment. Contact support.")
 
-    if cf_order.get("order_status") != "PAID":
+    payments = im_order.get("payments", [])
+    paid = any(p.get("status") == "Credit" for p in payments)
+    if not paid:
+        status_str = payments[0].get("status", "pending") if payments else "no payments"
         raise HTTPException(
             status_code=400,
-            detail=f"Payment not completed. Status: {cf_order.get('order_status', 'unknown')}",
+            detail=f"Payment not completed. Status: {status_str}",
         )
 
     sub = (
@@ -168,26 +175,11 @@ def verify_payment(
     if not sub:
         raise HTTPException(status_code=404, detail="Order not found.")
 
-    # Get CF payment ID from order payments
-    cf_payment_id = None
-    try:
-        pay_resp = httpx.get(
-            f"{_cf_base()}/orders/{body.order_id}/payments",
-            headers=_cf_headers(),
-            timeout=15,
-        )
-        if pay_resp.status_code == 200:
-            payments = pay_resp.json()
-            if payments:
-                cf_payment_id = payments[0].get("cf_payment_id")
-    except Exception:
-        pass
-
-    sub.gateway_payment_id = str(cf_payment_id) if cf_payment_id else None
+    payment_id = payments[0].get("payment_id") if payments else None
+    sub.gateway_payment_id = payment_id
     sub.status = "active"
     sub.started_at = datetime.utcnow()
     sub.expires_at = datetime.utcnow() + timedelta(days=30)
-
     user.plan_tier = sub.plan_tier
     db.commit()
 

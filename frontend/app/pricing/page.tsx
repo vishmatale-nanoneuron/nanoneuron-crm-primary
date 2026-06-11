@@ -1,20 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Script from "next/script";
 import Link from "next/link";
 import Nav from "@/components/Nav";
 import { getToken } from "@/lib/api";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-declare global {
-  interface Window {
-    Cashfree: (config: { mode: "sandbox" | "production" }) => {
-      checkout: (opts: { paymentSessionId: string; redirectTarget?: string }) => void;
-    };
-  }
-}
 
 const PLANS = [
   {
@@ -123,10 +115,8 @@ export default function Pricing() {
         throw new Error(err.detail || "Could not create payment order.");
       }
       const order = await res.json();
-      // Store token so the success page can verify after redirect
       localStorage.setItem("ops_pending_order", order.order_id);
-      const cf = window.Cashfree({ mode: "production" });
-      cf.checkout({ paymentSessionId: order.payment_session_id, redirectTarget: "_self" });
+      window.location.href = order.payment_url;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setLoading(null);
@@ -135,7 +125,6 @@ export default function Pricing() {
 
   return (
     <>
-      <Script src="https://sdk.cashfree.com/js/v3/cashfree.js" strategy="lazyOnload" />
       <Nav />
       <main className="min-h-screen bg-zinc-950 text-white px-6 py-16">
         <div className="mx-auto max-w-6xl">
@@ -270,7 +259,7 @@ export default function Pricing() {
               },
               {
                 q: "What payment methods are accepted?",
-                a: "All major Indian cards, UPI, net banking, and wallets via Cashfree. International cards also accepted.",
+                a: "All major Indian cards, UPI, net banking, and wallets via Instamojo. International cards also accepted.",
               },
               {
                 q: "I'm a startup. Can I get a discount?",
