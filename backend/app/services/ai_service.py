@@ -170,6 +170,13 @@ def _fallback_analysis(text: str, industry: str) -> dict:
         "evidence": json.dumps([f"Keyword scan found {delay_hits} delay signals, {inv_hits} inventory signals, {bottle_hits} bottleneck signals across {rows} rows. Note: specific row citations require LLM analysis."]),
         "confidence_level": confidence,
         "data_quality_issues": json.dumps(["LLM engine unavailable — specific item names and row-level evidence not available. Counts are keyword frequency estimates."]),
+        "agi_reasoning": json.dumps([
+            f"Step 1: Classified as {industry}/{sub_vertical} using keyword pattern matching (LLM unavailable)",
+            f"Step 2: Keyword scan found {delay_hits} delay signals, {inv_hits} inventory signals, {bottle_hits} bottleneck signals across {rows} rows",
+            "Step 3: Pattern analysis only — specific row IDs and cross-column correlation require LLM analysis",
+            f"Step 4: Estimated cost exposure: {rows} rows × industry multiplier = ₹{cost * 83:,} at risk",
+            "Step 5: Regex fallback cannot determine root cause — LLM engine required for causal reasoning",
+        ]),
         "industry_detected": industry,
         "sub_vertical": sub_vertical,
         "cost_impact_usd": cost,
@@ -265,6 +272,13 @@ recommendations_json: JSON array of EXACTLY 3 objects. No newlines inside string
 
 recommendations: same 3 actions as plain text (one per line, numbered) for backward compatibility.
 
+agi_reasoning: JSON array of EXACTLY 5 strings — your step-by-step reasoning chain. Show your work. Each string is ONE sentence. NO newlines inside strings.
+["Step 1: Classified as <industry>/<sub_vertical> because <specific evidence from the data>",
+ "Step 2: Identified <N> critical items by <method>: <specific IDs, routes, machines, SKUs>",
+ "Step 3: Cross-signal pattern: <what makes this systemic, not random — specific cross-column evidence>",
+ "Step 4: Financial exposure: <show the calculation — N items × avg value = total ₹>",
+ "Step 5: Root cause and intervention: <causal reasoning for why the top recommendation is the correct fix>"]
+
 industry_detected: one of: logistics | manufacturing | warehouse | retail | supply_chain | devops | mlops | operations
 
 cost_impact_usd: integer — total USD at risk this period. 0 if no issues found. Ground this in actual row data where possible.
@@ -309,6 +323,13 @@ DATA TO ANALYZE:
             result["recommendations_json"] = json.dumps(rj)
         elif not isinstance(rj, str):
             result["recommendations_json"] = json.dumps([])
+
+        # Ensure agi_reasoning is a valid JSON string
+        ar = result.get("agi_reasoning")
+        if isinstance(ar, list):
+            result["agi_reasoning"] = json.dumps(ar)
+        elif not isinstance(ar, str):
+            result["agi_reasoning"] = json.dumps([])
 
         # Annual savings: use LLM value if present and non-zero, else industry multiplier
         if not result.get("annual_savings_usd"):

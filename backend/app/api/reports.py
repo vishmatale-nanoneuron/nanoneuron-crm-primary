@@ -284,6 +284,7 @@ def demo_analysis(
         evidence=result.get("evidence"),
         confidence_level=result.get("confidence_level"),
         data_quality_issues=result.get("data_quality_issues"),
+        agi_reasoning=result.get("agi_reasoning"),
     )
     db.add(insight)
     db.commit()
@@ -363,6 +364,7 @@ async def upload_report(
         evidence=result.get("evidence"),
         confidence_level=result.get("confidence_level"),
         data_quality_issues=result.get("data_quality_issues"),
+        agi_reasoning=result.get("agi_reasoning"),
     )
     db.add(insight)
     db.commit()

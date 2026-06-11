@@ -74,9 +74,9 @@ export default function Home() {
       {/* Hero — pain first */}
       <section aria-label="Hero" className="pt-32 pb-20 px-6">
         <div className="mx-auto max-w-5xl">
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/8 px-4 py-1.5 text-sm text-red-400">
-            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
-            Vertical AI for Industrial Operations
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/8 px-4 py-1.5 text-sm text-violet-400">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />
+            Vertical AGI — Reasoning Engine for Industrial Operations
           </div>
 
           {/* Pain signals */}
@@ -153,7 +153,7 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-6">
             {[
               { num: "01", title: "Upload your report", desc: "CSV, Excel, or PDF from your ERP, WMS, or TMS. Any format — no template needed." },
-              { num: "02", title: "AI names the pain", desc: "Not 'risk score 78'. It says: M2-Lathe, BlueDart Mumbai-Delhi, SKU-105 — specific, quantified, urgent." },
+              { num: "02", title: "AGI reasons, names the pain", desc: "Not 'risk score 78'. It shows 5 reasoning steps: classifies the sub-vertical, identifies critical rows, detects patterns, calculates exposure, and names the fix — M2-Lathe, BlueDart Mumbai–Delhi, SKU-105." },
               { num: "03", title: "Your team acts today", desc: "Three actions: This Week / This Month / Next Quarter. Each names an owner, a task, and the financial impact of fixing it." },
             ].map((s) => (
               <div key={s.num} className="card relative overflow-hidden">
@@ -161,6 +161,66 @@ export default function Home() {
                 <div className="text-emerald-400 text-sm font-mono mb-3">{s.num}</div>
                 <h3 className="font-semibold text-lg mb-2">{s.title}</h3>
                 <p className="text-white/55 text-sm leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* AGI Reasoning Engine showcase */}
+      <section aria-label="AGI reasoning engine" className="px-6 py-20 border-t border-white/8">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-14">
+            <p className="text-sm uppercase tracking-widest text-violet-400/70 mb-3">AGI Reasoning Engine</p>
+            <h2 className="text-3xl md:text-4xl font-bold">Not a chatbot. A reasoning engine that shows its work.</h2>
+            <p className="mt-4 max-w-2xl mx-auto text-white/50 text-lg leading-relaxed">
+              Every analysis exposes the full chain of thought — which data it read, what pattern it found, why it&apos;s recommending this exact action.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 overflow-hidden">
+            <div className="border-b border-violet-500/15 px-5 py-3 flex items-center justify-between">
+              <span className="text-xs text-violet-400/70 uppercase tracking-wider font-semibold">Live reasoning chain — Manufacturing report</span>
+              <span className="rounded-full bg-violet-500/20 border border-violet-500/30 px-2.5 py-1 text-xs text-violet-400 font-semibold">
+                ⚡ Vertical AGI
+              </span>
+            </div>
+            <div className="p-5 space-y-4">
+              {[
+                { n: 1, step: "Classified as manufacturing / discrete — CNC, lathe, press, shift keywords in 3+ columns. Sub-vertical: discrete manufacturing." },
+                { n: 2, step: "Isolated 3 critical rows: M2-Lathe Morning (95 min downtime), M2-Lathe Afternoon (110 min), M2-Lathe Night (155 min) — same machine, three consecutive shifts." },
+                { n: 3, step: "Pattern is escalating mechanical failure — not random. Downtime rising each shift: +15 min, then +45 min. Every other machine (M1, M3, M4, M5) shows zero breakdown pattern." },
+                { n: 4, step: "Financial exposure: 415 lost units × ₹468/unit standard cost = ₹1,94,220 at risk this week alone. Annualized at current trend: ₹1.01 Cr." },
+                { n: 5, step: "Root cause: escalating downtime on single machine across shifts matches spindle bearing wear lifecycle. Emergency maintenance before next shift prevents full breakdown and 72-hr repair stoppage." },
+              ].map(({ n, step }) => (
+                <div key={n} className="flex items-start gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="shrink-0 w-6 h-6 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs font-bold flex items-center justify-center mt-0.5"
+                  >
+                    {n}
+                  </span>
+                  <span className="text-sm text-white/65 font-mono leading-relaxed">{step}</span>
+                </div>
+              ))}
+              <div className="mt-2 pt-4 border-t border-violet-500/15 flex items-start gap-3">
+                <span className="text-emerald-400 font-semibold text-sm shrink-0 mt-0.5">→ Verdict:</span>
+                <span className="text-sm text-white/75 leading-relaxed">
+                  Maintenance engineer inspects spindle bearings before next shift. Schedule 4-hour PM this weekend — do not wait for full breakdown. Cost: ₹8,000 PM. Risk avoided: ₹1,94,220 this week.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid md:grid-cols-3 gap-4">
+            {[
+              { label: "5-step chain-of-thought", desc: "Every analysis shows the full reasoning — not just the answer" },
+              { label: "Evidence-first", desc: "Each finding cites the specific rows that drove the conclusion" },
+              { label: "Honest uncertainty", desc: "When data is sparse, the AI says so — no fake confidence" },
+            ].map((f) => (
+              <div key={f.label} className="rounded-xl border border-white/8 bg-white/3 px-4 py-4">
+                <p className="font-semibold text-sm text-violet-400 mb-1">{f.label}</p>
+                <p className="text-xs text-white/45 leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -197,7 +257,7 @@ export default function Home() {
             <span className="text-emerald-400">problems after they cost you.</span>
           </h2>
           <p className="text-white/50 text-lg mb-10 max-w-xl mx-auto">
-            Upload your first report now. AI names the pain, quantifies the cost, and gives your team a Monday Morning Action Plan — in 30 seconds.
+            Upload your first report now. The AGI reasoning engine reads every row, names the specific pain, shows exactly how it reached that conclusion, and gives your team a Monday Morning Action Plan — in 30 seconds.
           </p>
           <Link href="/register" className="btn text-base px-10 py-4 inline-block">
             Start Free — No Card Required

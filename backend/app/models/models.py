@@ -66,6 +66,7 @@ class Insight(Base):
     evidence = Column(Text, nullable=True)               # JSON: ["specific row/pattern that drove each finding"]
     confidence_level = Column(String(20), nullable=True) # "high" | "medium" | "low" | "insufficient_data"
     data_quality_issues = Column(Text, nullable=True)    # JSON: ["what couldn't be assessed and why"]
+    agi_reasoning = Column(Text, nullable=True)          # JSON: ["Step 1: ...", ..., "Step 5: ..."] — chain-of-thought
     created_at = Column(DateTime, server_default=func.now())
     report = relationship("Report", back_populates="insights")
 

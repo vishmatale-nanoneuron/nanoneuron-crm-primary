@@ -27,6 +27,7 @@ export type InsightData = {
   evidence?: string | null;
   confidence_level?: string | null;
   data_quality_issues?: string | null;
+  agi_reasoning?: string | null;
 };
 
 type ActionCard = {
@@ -146,6 +147,34 @@ function EvidenceSection({ evidence }: { evidence: string | null | undefined }) 
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function AGIReasoningChain({ reasoning }: { reasoning: string | null | undefined }) {
+  const steps = parseJson<string[]>(reasoning, []);
+  if (!steps.length) return null;
+  return (
+    <div className="rounded-xl border border-violet-500/15 bg-violet-500/5 p-5 print:border-violet-200">
+      <h3 className="font-semibold text-sm text-violet-400 mb-4 flex items-center gap-2 print:text-violet-700">
+        <span aria-hidden="true">⚡</span>
+        AGI Reasoning Chain — how the AI reached this conclusion
+      </h3>
+      <ol className="space-y-3">
+        {steps.map((step, i) => (
+          <li key={i} className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="shrink-0 w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-400 text-xs font-bold flex items-center justify-center mt-0.5 print:bg-violet-100 print:text-violet-700"
+            >
+              {i + 1}
+            </span>
+            <span className="text-sm text-white/65 font-mono leading-relaxed print:text-gray-600">
+              {step.replace(/^Step \d+:\s*/i, "")}
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -298,6 +327,9 @@ export default function InsightAnalysis({ insight, showBenchmarkBadge = true, sh
 
         {/* Evidence — "What the AI saw" */}
         <EvidenceSection evidence={insight.evidence} />
+
+        {/* AGI Reasoning Chain — chain-of-thought */}
+        <AGIReasoningChain reasoning={insight.agi_reasoning} />
 
         {/* Structured Action Plan */}
         {actionCards.length > 0 ? (
