@@ -39,6 +39,8 @@ const industries = [
   { href: "/logistics-ai", label: "Logistics AI", pain: "Delays discovered after the customer calls", kpi: "Predict SLA breaches before they happen" },
   { href: "/manufacturing-ai", label: "Manufacturing AI", pain: "Downtime found after the shift is over", kpi: "Detect machine failures before line stops" },
   { href: "/warehouse-ai", label: "Warehouse AI", pain: "Stockouts found when production stops", kpi: "Flag inventory crises before they hit" },
+  { href: "/devops-ai", label: "DevOps AI", pain: "P1 incident at 2am — deploy caused it, nobody knows which", kpi: "Find the deploy that caused the incident" },
+  { href: "/mlops-ai", label: "MLOps AI", pain: "Model accuracy dropped 15%. Team finds out from a customer complaint.", kpi: "Detect model drift before it costs you" },
 ];
 
 export default function Home() {
@@ -53,6 +55,8 @@ export default function Home() {
             <Link href="/logistics-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">Logistics</Link>
             <Link href="/manufacturing-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">Manufacturing</Link>
             <Link href="/warehouse-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">Warehouse</Link>
+            <Link href="/devops-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">DevOps</Link>
+            <Link href="/mlops-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">MLOps</Link>
             <Link href="/pricing" className="text-sm text-white/60 hover:text-white transition-colors">Pricing</Link>
             <Link href="/login" className="text-sm text-white/60 hover:text-white transition-colors">Login</Link>
             <Link href="/register" className="btn text-sm py-2 px-5">Try Free</Link>
@@ -74,6 +78,8 @@ export default function Home() {
               { label: "LOGISTICS", signal: "BlueDart Mumbai→Delhi · 5 shipments · 100% delayed · ₹28,600 at risk", color: "border-red-500/30 bg-red-500/5 text-red-300" },
               { label: "MANUFACTURING", signal: "M2-Lathe · 360 min downtime this week · 54% output attainment · escalating", color: "border-red-500/30 bg-red-500/5 text-red-300" },
               { label: "WAREHOUSE", signal: "SKU-105 Conveyor Belt · stock = 0 · lead time 21 days · stockout for 56 days", color: "border-red-500/30 bg-red-500/5 text-red-300" },
+              { label: "DEVOPS", signal: "payment-service · 2 failed deploys in 6 days · P1 incident · MTTR 105 min", color: "border-red-500/30 bg-red-500/5 text-red-300" },
+              { label: "MLOPS", signal: "fraud-detector · accuracy 94% → 87% · data drift 0.34 · retraining overdue", color: "border-red-500/30 bg-red-500/5 text-red-300" },
             ].map((s) => (
               <div key={s.label} className={`flex items-center gap-3 rounded-xl border ${s.color} px-4 py-3 font-mono text-sm`}>
                 <span className="text-xs text-white/30 shrink-0 w-24">{s.label}</span>
@@ -89,8 +95,8 @@ export default function Home() {
             <span className="text-emerald-400">OpsOracle AI finds them first.</span>
           </h1>
           <p className="max-w-2xl text-lg text-white/55 leading-relaxed mb-10">
-            Upload your logistics, warehouse, or manufacturing report. AI reads every row,
-            names the specific pain — carrier, machine, SKU — and tells your team exactly
+            Upload your logistics, warehouse, manufacturing, or DevOps report. AI reads every row,
+            names the specific pain — carrier, machine, SKU, or service — and tells your team exactly
             what to do about it. In under 30 seconds.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
@@ -199,6 +205,8 @@ export default function Home() {
             <Link href="/logistics-ai" className="hover:text-white transition-colors">Logistics AI</Link>
             <Link href="/manufacturing-ai" className="hover:text-white transition-colors">Manufacturing AI</Link>
             <Link href="/warehouse-ai" className="hover:text-white transition-colors">Warehouse AI</Link>
+            <Link href="/devops-ai" className="hover:text-white transition-colors">DevOps AI</Link>
+            <Link href="/mlops-ai" className="hover:text-white transition-colors">MLOps AI</Link>
             <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-white transition-colors">Login</Link>
           </div>

@@ -45,6 +45,8 @@ const DEMO_INDUSTRIES = [
   { value: "logistics", label: "Logistics & Shipments" },
   { value: "manufacturing", label: "Manufacturing & Machines" },
   { value: "warehouse", label: "Warehouse & Inventory" },
+  { value: "devops", label: "DevOps & Deployments" },
+  { value: "mlops", label: "MLOps & Model Health" },
 ];
 
 export default function Upload() {

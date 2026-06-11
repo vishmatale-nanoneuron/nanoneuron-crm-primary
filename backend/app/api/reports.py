@@ -57,7 +57,37 @@ SKU-106,Nuts M10 (100pk),Fasteners,1200,200,45,3,2026-06-08,A2
 SKU-107,PLC Controller,Electronics,2,4,0,30,2026-03-10,C1
 SKU-108,Work Gloves M,PPE,15,40,8,3,2026-06-01,B2
 SKU-109,Drill Bit Set,Tools,60,20,3,5,2026-06-03,A3
-SKU-110,Transformer 5KVA,Electrical,1,3,0,45,2026-02-20,C1"""
+SKU-110,Transformer 5KVA,Electrical,1,3,0,45,2026-02-20,C1""",
+
+    "mlops": """Date,Model,Type,Status,Accuracy_Pct,Latency_P99_Ms,Data_Drift_Score,Retraining_Required,Issue
+2026-06-01,fraud-detector,inference,HEALTHY,94.2,45,0.04,NO,
+2026-06-02,churn-predictor,training,FAILED,,,0.51,YES,Training data 38pct null values
+2026-06-03,fraud-detector,inference,DEGRADED,87.1,112,0.34,YES,Accuracy dropped below 90pct threshold
+2026-06-03,recommendation-engine,inference,HEALTHY,91.5,28,0.07,NO,
+2026-06-04,fraud-detector,retraining,SUCCESS,93.8,48,0.06,NO,
+2026-06-05,churn-predictor,training,FAILED,,,0.62,YES,Feature store stale 72hr upstream data lag
+2026-06-05,pricing-model,inference,DEGRADED,79.3,890,0.61,YES,P99 latency SLA breach 890ms vs 200ms target
+2026-06-06,pricing-model,retraining,SUCCESS,88.1,210,0.14,NO,
+2026-06-07,churn-predictor,training,SUCCESS,89.4,67,0.09,NO,
+2026-06-07,fraud-detector,inference,HEALTHY,93.9,44,0.05,NO,
+2026-06-08,recommendation-engine,inference,DEGRADED,84.2,310,0.42,YES,CTR dropped 18pct feature drift detected
+2026-06-08,pricing-model,inference,HEALTHY,87.9,195,0.11,NO,""",
+
+    "devops": """Date,Service,Type,Status,Duration_Mins,Severity,Root_Cause,Rollback_Required,MTTR_Mins
+2026-06-01,payment-service,deploy,SUCCESS,12,,,NO,
+2026-06-02,auth-service,deploy,FAILED,8,,,YES,
+2026-06-02,auth-service,incident,P1,,Login failures 40pct users,Failed deploy v1.8.0,YES,150
+2026-06-03,api-gateway,deploy,FAILED,22,,,YES,
+2026-06-03,api-gateway,incident,P1,,502 errors 100pct traffic,Failed release deploy,YES,100
+2026-06-03,api-gateway,deploy,SUCCESS,14,,,NO,
+2026-06-04,user-service,deploy,SUCCESS,9,,,NO,
+2026-06-05,notification-service,deploy,FAILED,18,,,YES,
+2026-06-05,notification-service,incident,P2,,Email delivery 2hr delay,Bad hotfix deploy,,140
+2026-06-05,notification-service,deploy,SUCCESS,11,,,NO,
+2026-06-06,payment-service,deploy,FAILED,25,,,YES,
+2026-06-06,payment-service,incident,P1,,Payment processing down,Deploy regression,,105
+2026-06-07,auth-service,deploy,SUCCESS,10,,,NO,
+2026-06-07,monitoring-service,deploy,SUCCESS,7,,,NO,"""
 }
 
 

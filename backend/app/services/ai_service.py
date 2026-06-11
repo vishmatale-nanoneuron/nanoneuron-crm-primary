@@ -12,6 +12,8 @@ INDUSTRY_CONTEXT = {
     "warehouse": "Focus on inventory turnover velocity, stockout patterns, carrying cost inefficiencies, and order fill rate degradation.",
     "retail": "Focus on demand forecast accuracy, stockout-to-shelf conversion, returns rate, and seasonal demand signal strength.",
     "supply_chain": "Focus on supplier lead time variability, safety stock adequacy, procurement cycle gaps, and BOM risk exposure.",
+    "devops": "Focus on DORA metrics: deployment frequency, change failure rate, MTTR, and lead time for changes. Identify which services have the highest rollback rate and incident correlation. Quantify incident cost as downtime_minutes × service_revenue_rate.",
+    "mlops": "Focus on model health: accuracy drift vs baseline, data/feature drift scores, training pipeline failure rate, inference latency SLA breaches, and retraining cycle lag. Identify which models are degrading and why. Quantify business impact of model accuracy drops (e.g. missed fraud detections, wrong churn predictions).",
     "operations": "Focus on overall operational efficiency, process bottlenecks, resource utilization, and output quality.",
 }
 
@@ -21,6 +23,8 @@ COST_MULTIPLIERS = {
     "warehouse": 200,
     "retail": 150,
     "supply_chain": 400,
+    "devops": 600,
+    "mlops": 900,
     "operations": 300,
 }
 
@@ -54,6 +58,16 @@ SUB_VERTICAL_PATTERNS = {
         ("3pl",         r"\b3pl\b|third.party.logistics|fulfillment.center|\bfc\b|distribution.center|contract.logistics|4pl"),
         ("dark_store",  r"dark.store|quick.commerce|rapid.delivery|10.minute|instant.delivery|hyperlocal|q-commerce"),
     ],
+    "devops": [
+        ("ci_cd",       r"jenkins|github.actions|gitlab.ci|circleci|bitbucket|pipeline|build.fail|workflow|artifact|runner"),
+        ("incident_mgmt", r"pagerduty|opsgenie|victorops|incident|\bon.call\b|mttr|escalat|sla.breach|\bp0\b|\bp1\b|\bp2\b|alert|postmortem"),
+        ("infrastructure", r"kubernetes|k8s|terraform|ansible|helm|docker|container|node.pool|pod|cluster|cloud.run|aws|gcp|azure"),
+    ],
+    "mlops": [
+        ("model_monitoring", r"accuracy|drift|baseline|degraded|precision|recall|f1|auc|roc|confusion.matrix|model.performance"),
+        ("training_pipeline", r"training|retraining|epoch|loss|dataset|feature.store|data.quality|null.value|pipeline.fail|job.fail"),
+        ("inference",       r"latency|p99|p95|throughput|prediction|inference|serving|endpoint|sla.breach|timeout|batch.predict"),
+    ],
 }
 
 
@@ -65,6 +79,8 @@ def classify_industry(text: str) -> str:
         "warehouse": len(re.findall(r"warehouse|inventory|sku|storage|bin|pick|pack|receipt|putaway|wms|stockout|reorder", lower)),
         "retail": len(re.findall(r"store|sales|customer|demand|forecast|pos|order|fulfillment|returns|sell.through", lower)),
         "supply_chain": len(re.findall(r"supplier|vendor|procurement|purchase|bom|lead.time|safety.stock|rfq|sourcing", lower)),
+        "devops": len(re.findall(r"deploy|pipeline|incident|mttr|rollback|ci.cd|build.fail|\bp1\b|\bp2\b|\bp0\b|change.fail|devops|kubernetes|jenkins|gitops|sre|on.call", lower)),
+        "mlops": len(re.findall(r"model|accuracy|drift|training|inference|retraining|feature.store|latency|prediction|mlops|ml.pipeline|data.quality|model.degraded|serving", lower)),
     }
     best = max(scores, key=lambda k: scores[k])
     return best if scores[best] > 0 else "operations"
@@ -94,6 +110,8 @@ def compute_vertical_ai_score(industry: str, text: str, risk_score: int) -> int:
         "warehouse": r"inventory|sku|storage|stockout|reorder|wms|bin|pick|putaway",
         "retail": r"sales|demand|forecast|pos|fulfillment|returns|sell.through",
         "supply_chain": r"supplier|vendor|procurement|lead.time|safety.stock|sourcing",
+        "devops": r"deploy|pipeline|incident|mttr|rollback|build.fail|change.fail|kubernetes|jenkins|\bp1\b|\bp2\b|sre",
+        "mlops": r"model|accuracy|drift|training|inference|retraining|feature.store|latency|prediction|serving",
         "operations": r"process|efficiency|output|workflow|kpi|performance",
     }
     pattern = industry_patterns.get(industry, industry_patterns["operations"])
@@ -212,7 +230,7 @@ Analyze this data and return a JSON object with these exact keys:
   3. [NEXT QUARTER] <systemic fix> — expected impact: <quantified result>
   Each action must name WHO does it, WHAT exactly, and WHY (the pain it fixes). Use Indian carrier names if present.
 
-- industry_detected: string (logistics | manufacturing | warehouse | retail | supply_chain | operations)
+- industry_detected: string (logistics | manufacturing | warehouse | retail | supply_chain | devops | mlops | operations)
 - cost_impact_usd: integer (total USD at risk; 0 if no issues)
 - vertical_ai_score: integer 0-100
 - annual_savings_usd: integer (3-5× cost_impact_usd if recommendations are implemented)

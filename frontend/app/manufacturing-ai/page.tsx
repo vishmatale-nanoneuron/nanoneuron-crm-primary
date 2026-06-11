@@ -204,6 +204,7 @@ export default function ManufacturingAI() {
           <div className="flex gap-6 text-sm text-white/40">
             <Link href="/logistics-ai" className="hover:text-white transition-colors">Logistics AI</Link>
             <Link href="/warehouse-ai" className="hover:text-white transition-colors">Warehouse AI</Link>
+            <Link href="/devops-ai" className="hover:text-white transition-colors">DevOps AI</Link>
           </div>
         </div>
       </footer>
