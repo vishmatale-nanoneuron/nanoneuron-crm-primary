@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     INSTAMOJO_CLIENT_ID: str = ""
     INSTAMOJO_CLIENT_SECRET: str = ""
     INSTAMOJO_ENV: str = "production"
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
     ADMIN_SECRET: str = ""
     RESEND_API_KEY: str = ""
     DIGEST_FROM_EMAIL: str = "service@nanoneuron.ai"

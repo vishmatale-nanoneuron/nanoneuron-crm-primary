@@ -17,6 +17,7 @@ function PaymentSuccessInner() {
 
   useEffect(() => {
     const orderId = params.get("order_id") || localStorage.getItem("ops_pending_order");
+    const gateway = params.get("gateway") || localStorage.getItem("ops_pending_gateway") || "cashfree";
     if (!orderId) {
       setStatus("failed");
       setDetail("No order ID found. If you paid, contact support at service@nanoneuron.ai");
@@ -25,14 +26,14 @@ function PaymentSuccessInner() {
 
     const token = getToken();
     if (!token) {
-      router.push(`/login?next=/payment/success?order_id=${orderId}`);
+      router.push(`/login?next=/payment/success?order_id=${orderId}&gateway=${gateway}`);
       return;
     }
 
     fetch(`${API}/payments/verify`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ order_id: orderId }),
+      body: JSON.stringify({ order_id: orderId, gateway }),
     })
       .then(async (r) => {
         const data = await r.json();
@@ -40,6 +41,7 @@ function PaymentSuccessInner() {
           setPlanTier(data.plan_tier);
           setStatus("success");
           localStorage.removeItem("ops_pending_order");
+          localStorage.removeItem("ops_pending_gateway");
           setTimeout(() => router.push("/dashboard"), 3000);
         } else if (r.status === 400 && data.detail?.includes("ACTIVE")) {
           // Payment still processing

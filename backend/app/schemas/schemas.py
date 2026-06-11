@@ -122,6 +122,7 @@ class BenchmarkResponse(BaseModel):
 
 class CreateOrderRequest(BaseModel):
     plan_tier: str
+    gateway: str = "cashfree"  # cashfree | stripe
 
 
 class CreateOrderResponse(BaseModel):
@@ -135,6 +136,7 @@ class CreateOrderResponse(BaseModel):
 
 class VerifyPaymentRequest(BaseModel):
     order_id: str
+    gateway: str = "cashfree"  # cashfree | stripe
 
 
 class PlanResponse(BaseModel):

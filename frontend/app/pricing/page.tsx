@@ -95,20 +95,20 @@ export default function Pricing() {
       .catch(() => {});
   }, []);
 
-  async function handleUpgrade(planTier: "pro" | "enterprise") {
+  async function handleUpgrade(planTier: "pro" | "enterprise", gateway: "cashfree" | "stripe") {
     const token = getToken();
     if (!token) {
       router.push("/register?next=/pricing");
       return;
     }
-    setLoading(planTier);
+    setLoading(`${planTier}-${gateway}`);
     setError("");
     setSuccess("");
     try {
       const res = await fetch(`${API}/payments/create-order`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ plan_tier: planTier }),
+        body: JSON.stringify({ plan_tier: planTier, gateway }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -116,6 +116,7 @@ export default function Pricing() {
       }
       const order = await res.json();
       localStorage.setItem("ops_pending_order", order.order_id);
+      localStorage.setItem("ops_pending_gateway", gateway);
       window.location.href = order.payment_url;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -216,17 +217,32 @@ export default function Pricing() {
                       Active Plan
                     </div>
                   ) : (
-                    <button
-                      disabled={loading === plan.tier}
-                      onClick={() => handleUpgrade(plan.tier as "pro" | "enterprise")}
-                      className={`block w-full rounded-xl px-6 py-3 text-sm font-semibold transition-all ${
-                        plan.highlight
-                          ? "bg-emerald-500 hover:bg-emerald-400 text-white"
-                          : "border border-white/15 hover:bg-white/5 text-white"
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {loading === plan.tier ? "Opening payment…" : plan.cta}
-                    </button>
+                    <div className="space-y-2">
+                      {/* Cashfree — India: UPI, cards, net banking */}
+                      <button
+                        disabled={!!loading}
+                        onClick={() => handleUpgrade(plan.tier as "pro" | "enterprise", "cashfree")}
+                        className={`flex items-center justify-center gap-2 w-full rounded-xl px-6 py-3 text-sm font-semibold transition-all ${
+                          plan.highlight
+                            ? "bg-emerald-500 hover:bg-emerald-400 text-white"
+                            : "border border-white/15 hover:bg-white/5 text-white"
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {loading === `${plan.tier}-cashfree` ? "Opening…" : (
+                          <><span>Pay via Cashfree</span><span className="text-xs opacity-70">UPI · Cards · INR</span></>
+                        )}
+                      </button>
+                      {/* Stripe — International: credit/debit cards */}
+                      <button
+                        disabled={!!loading}
+                        onClick={() => handleUpgrade(plan.tier as "pro" | "enterprise", "stripe")}
+                        className="flex items-center justify-center gap-2 w-full rounded-xl px-6 py-3 text-sm font-medium border border-white/15 hover:bg-white/5 text-white/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading === `${plan.tier}-stripe` ? "Opening…" : (
+                          <><span>Pay via Stripe</span><span className="text-xs opacity-60">International · USD</span></>
+                        )}
+                      </button>
+                    </div>
                   )}
                 </div>
               );
