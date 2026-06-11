@@ -49,6 +49,11 @@ def _run_migrations() -> None:
         # Fix 3: Alibaba data moat — historical baseline comparison
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS risk_delta INTEGER",
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS baseline_comparison TEXT",
+        # v3.4.0 world-class trust layer: evidence, real confidence, structured actions, data quality
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS recommendations_json TEXT",
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS evidence TEXT",
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS confidence_level VARCHAR(20)",
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS data_quality_issues TEXT",
     ]
     try:
         with engine.connect() as conn:
@@ -61,7 +66,7 @@ def _run_migrations() -> None:
 
 _run_migrations()
 
-app = FastAPI(title="OpsOracle AI API", version="3.3.0", redirect_slashes=False)
+app = FastAPI(title="OpsOracle AI API", version="3.4.0", redirect_slashes=False)
 
 origins = [
     "https://nanoneuron.ai",
@@ -86,4 +91,4 @@ app.include_router(digest.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "product": "OpsOracle AI", "version": "3.2.0"}
+    return {"status": "ok", "product": "OpsOracle AI", "version": "3.4.0"}

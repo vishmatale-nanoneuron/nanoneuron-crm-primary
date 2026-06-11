@@ -3,46 +3,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Nav from "@/components/Nav";
+import InsightAnalysis, { type InsightData } from "@/components/InsightAnalysis";
 import { getToken } from "@/lib/api";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-type Insight = {
-  id: string;
-  report_id: string;
-  risk_score: number;
-  delay_probability: number;
-  inventory_risk: number;
-  bottleneck_summary: string;
-  executive_summary: string;
-  recommendations: string;
-  industry_detected?: string;
-  cost_impact_usd?: number;
-  vertical_ai_score?: number;
-  annual_savings_usd?: number;
-  sub_vertical?: string | null;
-  benchmark_count?: number | null;
-  expert_reviewed?: boolean;
-  resolved_at?: string | null;
-  analysis_method?: string;
-  risk_delta?: number | null;
-  baseline_comparison?: string | null;
-};
+type Insight = InsightData;
 
 type Usage = { plan_tier: string; used: number; limit: number | null; unlimited: boolean; remaining: number | null };
 
-function RiskBar({ value, label }: { value: number; label: string }) {
-  const color = value >= 70 ? "bg-red-500" : value >= 40 ? "bg-yellow-500" : "bg-emerald-500";
-  return (
-    <div className="card">
-      <p className="text-white/50 text-sm">{label}</p>
-      <h2 className="mt-1 text-4xl font-bold">{value}%</h2>
-      <div className="mt-3 h-2 w-full rounded-full bg-white/10">
-        <div className={`h-2 rounded-full ${color} transition-all`} style={{ width: `${value}%` }} />
-      </div>
-    </div>
-  );
-}
 
 const DEMO_INDUSTRIES = [
   { value: "logistics", label: "Logistics & Shipments" },
@@ -261,123 +230,28 @@ export default function Upload() {
 
         {insight && (
           <section aria-label="AI analysis results" aria-live="polite" className="mt-10">
-            {/* Fix 1: Fallback alert — ByteDance telemetry pattern */}
-            {insight.analysis_method === "fallback_regex" && (
-              <div role="alert" className="mb-5 flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/8 px-5 py-4">
-                <span className="text-yellow-400 text-lg shrink-0 mt-0.5">⚠</span>
-                <div>
-                  <p className="font-semibold text-yellow-400 text-sm">Pattern analysis mode</p>
-                  <p className="text-white/60 text-xs mt-1">
-                    AI service temporarily unavailable — results are from keyword pattern analysis and may be less specific than normal. Numbers are estimates. The AI engine will retry on your next upload.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Fix 3: Baseline comparison — Alibaba data moat */}
-            {insight.baseline_comparison && (
-              <div className={`mb-5 flex items-center gap-3 rounded-xl border px-5 py-3 ${
-                (insight.risk_delta ?? 0) > 5
-                  ? "border-red-500/20 bg-red-500/8"
-                  : (insight.risk_delta ?? 0) < -5
-                  ? "border-emerald-500/20 bg-emerald-500/8"
-                  : "border-white/10 bg-white/5"
-              }`}>
-                <span className={`text-base shrink-0 ${
-                  (insight.risk_delta ?? 0) > 5 ? "text-red-400" :
-                  (insight.risk_delta ?? 0) < -5 ? "text-emerald-400" : "text-white/50"
-                }`}>
-                  {(insight.risk_delta ?? 0) > 5 ? "↑" : (insight.risk_delta ?? 0) < -5 ? "↓" : "→"}
-                </span>
-                <p className="text-sm text-white/70">{insight.baseline_comparison}</p>
-              </div>
-            )}
-
-            {/* Data flywheel — Kai-Fu Lee principle #1 */}
-            {(insight.benchmark_count ?? 0) > 0 && (
-              <div className="mb-5 flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/8 px-5 py-3">
-                <span className="text-blue-400 text-base shrink-0">◉</span>
-                <p className="text-sm text-blue-300">
-                  Your data now contributes to the{" "}
-                  <span className="font-semibold capitalize">{(insight.industry_detected || "operations").replace("_", " ")}</span>{" "}
-                  benchmark —{" "}
-                  <span className="font-semibold">{insight.benchmark_count} report{insight.benchmark_count !== 1 ? "s" : ""}</span>{" "}
-                  analyzed across operations teams.
-                </p>
-              </div>
-            )}
             <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
               <div>
                 <h2 className="text-2xl font-semibold">AI Risk Analysis</h2>
                 <p className="text-white/40 text-sm mt-1">
-                  {insight?.report_id ? "Analysis complete — saved to your reports" : "Live AI analysis"}
+                  {insight.industry_detected && (
+                    <span className="capitalize">{insight.industry_detected.replace("_", " ")} operations</span>
+                  )}
+                  {insight.sub_vertical && insight.sub_vertical !== "general" && (
+                    <span className="ml-1 text-purple-400 capitalize"> › {insight.sub_vertical.replace("_", " ")}</span>
+                  )}
                 </p>
               </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                {insight.industry_detected && (
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400 capitalize">
-                    {insight.industry_detected.replace("_", " ")} operations
-                  </span>
-                )}
-                {insight.sub_vertical && insight.sub_vertical !== "general" && (
-                  <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs text-purple-400 capitalize">
-                    {insight.sub_vertical.replace("_", " ")}
-                  </span>
-                )}
-                {insight.vertical_ai_score != null && (
-                  <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-400">
-                    Vertical AI Score: {insight.vertical_ai_score}/100
-                  </span>
-                )}
-                {insight.report_id && (
-                  <Link
-                    href={`/reports/${insight.report_id}`}
-                    className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-sm font-semibold text-white transition-colors"
-                  >
-                    View Full Report →
-                  </Link>
-                )}
-              </div>
+              {insight.report_id && (
+                <Link
+                  href={`/reports/${insight.report_id}`}
+                  className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-sm font-semibold text-white transition-colors"
+                >
+                  View Full Report →
+                </Link>
+              )}
             </div>
-
-            {(insight.cost_impact_usd != null || insight.annual_savings_usd != null) && (
-              <div className="mb-6 grid gap-4 md:grid-cols-2">
-                {insight.cost_impact_usd != null && insight.cost_impact_usd > 0 && (
-                  <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-5 py-4">
-                    <p className="text-xs text-red-400/70 uppercase tracking-wider mb-1">Cost at risk (current period)</p>
-                    <p className="text-2xl font-bold text-red-400">${insight.cost_impact_usd.toLocaleString()}</p>
-                    <p className="text-xs text-white/40 mt-1">Estimated from detected operational issues</p>
-                  </div>
-                )}
-                {insight.annual_savings_usd != null && insight.annual_savings_usd > 0 && (
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-5 py-4">
-                    <p className="text-xs text-emerald-400/70 uppercase tracking-wider mb-1">Estimated annual savings if fixed</p>
-                    <p className="text-2xl font-bold text-emerald-400">${insight.annual_savings_usd.toLocaleString()}</p>
-                    <p className="text-xs text-white/40 mt-1">AI estimate — based on industry recurrence patterns</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="grid gap-6 md:grid-cols-3">
-              <RiskBar value={insight.risk_score} label="Overall Risk Score" />
-              <RiskBar value={insight.delay_probability} label="Delay Probability" />
-              <RiskBar value={insight.inventory_risk} label="Inventory Risk" />
-            </div>
-            <div className="card mt-6 space-y-6">
-              <div>
-                <h3 className="font-semibold text-lg">Executive Summary</h3>
-                <p className="mt-2 text-white/70">{insight.executive_summary}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">Bottleneck Analysis</h3>
-                <p className="mt-2 text-white/70">{insight.bottleneck_summary}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">Recommendations</h3>
-                <p className="mt-2 text-white/70">{insight.recommendations}</p>
-              </div>
-            </div>
+            <InsightAnalysis insight={insight} showBenchmarkBadge showBaselineComparison />
           </section>
         )}
       </main>

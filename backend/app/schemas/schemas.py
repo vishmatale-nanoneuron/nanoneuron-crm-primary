@@ -63,6 +63,10 @@ class InsightResponse(BaseModel):
     analysis_method: str = "llm_groq"
     risk_delta: int | None = None
     baseline_comparison: str | None = None
+    recommendations_json: str | None = None
+    evidence: str | None = None
+    confidence_level: str | None = None
+    data_quality_issues: str | None = None
     created_at: datetime
 
     class Config:
@@ -104,6 +108,10 @@ class SharedInsightData(BaseModel):
     analysis_method: str = "llm_groq"
     risk_delta: int | None = None
     baseline_comparison: str | None = None
+    recommendations_json: str | None = None
+    evidence: str | None = None
+    confidence_level: str | None = None
+    data_quality_issues: str | None = None
     created_at: datetime
 
     class Config:

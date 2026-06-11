@@ -3,36 +3,13 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Nav from "@/components/Nav";
+import InsightAnalysis, { type InsightData } from "@/components/InsightAnalysis";
 import { api, getToken } from "@/lib/api";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type Report = { id: string; file_name: string; file_type: string | null; rows_count: number; industry: string | null; created_at: string };
-type Insight = {
-  id: string; risk_score: number; delay_probability: number; inventory_risk: number;
-  bottleneck_summary: string; executive_summary: string; recommendations: string;
-  industry_detected: string | null; cost_impact_usd: number | null;
-  vertical_ai_score: number | null; annual_savings_usd: number | null;
-  sub_vertical: string | null; resolved_at: string | null; resolution_note: string | null;
-  expert_reviewed: boolean; benchmark_count: number | null; agi_analysis: boolean; created_at: string;
-};
-
-function RiskBar({ value, label }: { value: number; label: string }) {
-  const color = value >= 70 ? "bg-red-500" : value >= 40 ? "bg-yellow-500" : "bg-emerald-500";
-  const textColor = value >= 70 ? "text-red-400" : value >= 40 ? "text-yellow-400" : "text-emerald-400";
-  return (
-    <div className="card print:border print:border-gray-200 print:bg-white print:shadow-none">
-      <p className="text-white/50 text-sm print:text-gray-500">{label}</p>
-      <h2 className={`mt-1 text-4xl font-bold ${textColor} print:text-gray-900`}>{value}%</h2>
-      <div className="mt-3 h-2 w-full rounded-full bg-white/10 print:bg-gray-100">
-        <div className={`h-2 rounded-full ${color} print:bg-gray-700`} style={{ width: `${value}%` }} />
-      </div>
-      <p className="mt-2 text-xs text-white/30 print:text-gray-400">
-        {value >= 70 ? "High risk — immediate action needed" : value >= 40 ? "Medium risk — monitor closely" : "Low risk — within normal range"}
-      </p>
-    </div>
-  );
-}
+type Insight = InsightData & { created_at: string };
 
 function SubVerticalLabel({ sub, industry }: { sub: string; industry: string }) {
   if (!sub || sub === "general") return null;
@@ -40,6 +17,8 @@ function SubVerticalLabel({ sub, industry }: { sub: string; industry: string }) 
     last_mile: "Last Mile", ftl: "FTL", cold_chain: "Cold Chain", air_freight: "Air Freight",
     discrete: "Discrete Mfg", process: "Process Mfg", automotive: "Automotive", pharma: "Pharma",
     spare_parts: "Spare Parts", "3pl": "3PL", dark_store: "Dark Store",
+    ci_cd: "CI/CD", incident_mgmt: "Incident Mgmt", infrastructure: "Infrastructure",
+    model_monitoring: "Model Monitoring", training_pipeline: "Training Pipeline", inference: "Inference",
   };
   return (
     <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs text-purple-400 capitalize print:hidden">
@@ -146,7 +125,7 @@ export default function ReportDetail() {
     <>
       <Nav />
       <main className="p-8 max-w-5xl mx-auto">
-        {/* Header — hidden in print */}
+        {/* Header */}
         <div className="mb-8 flex items-start justify-between flex-wrap gap-4 print:hidden">
           <div>
             <Link href="/reports" className="text-sm text-white/40 hover:text-white transition-colors">← All Reports</Link>
@@ -167,7 +146,7 @@ export default function ReportDetail() {
               )}
               {insight?.agi_analysis && (
                 <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs text-violet-400 font-semibold">
-                  ⚡ AGI Analysis
+                  ⚡ Vertical AGI Analysis
                 </span>
               )}
               {isResolved && (
@@ -221,7 +200,7 @@ export default function ReportDetail() {
           </div>
         </div>
 
-        {/* Print header — only in print */}
+        {/* Print header */}
         <div className="hidden print:block mb-8 border-b border-gray-200 pb-6">
           <div className="flex items-center justify-between">
             <div>
@@ -243,17 +222,6 @@ export default function ReportDetail() {
           </div>
         ) : (
           <>
-            {/* Data flywheel banner — Kai-Fu Lee principle #1 */}
-            {(insight.benchmark_count ?? 0) > 0 && (
-              <div className="mb-6 flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/8 px-5 py-3 print:hidden">
-                <span className="text-blue-400 text-base">◉</span>
-                <p className="text-sm text-blue-300">
-                  Your data contributed to the <span className="font-semibold capitalize">{industry.replace("_", " ")}</span> benchmark —{" "}
-                  <span className="font-semibold">{insight.benchmark_count} report{insight.benchmark_count !== 1 ? "s" : ""}</span> analyzed across operations teams.
-                </p>
-              </div>
-            )}
-
             {/* Resolution status banner */}
             {isResolved && (
               <div className="mb-6 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-5 py-3 print:hidden">
@@ -270,65 +238,10 @@ export default function ReportDetail() {
               </div>
             )}
 
-            {/* ROI panels */}
-            {((insight.cost_impact_usd ?? 0) > 0 || (insight.annual_savings_usd ?? 0) > 0) && (
-              <div className="mb-6 grid gap-4 md:grid-cols-2">
-                {(insight.cost_impact_usd ?? 0) > 0 && (
-                  <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-5 py-4 print:border-red-200 print:bg-red-50">
-                    <p className="text-xs text-red-400/70 uppercase tracking-wider mb-1 print:text-red-600">Cost at risk (current period)</p>
-                    <p className="text-2xl font-bold text-red-400 print:text-red-700">${insight.cost_impact_usd!.toLocaleString()}</p>
-                    <p className="text-xs text-white/40 mt-1 print:text-gray-500">Estimated from detected operational issues</p>
-                  </div>
-                )}
-                {(insight.annual_savings_usd ?? 0) > 0 && (
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-5 py-4 print:border-green-200 print:bg-green-50">
-                    <p className="text-xs text-emerald-400/70 uppercase tracking-wider mb-1 print:text-green-600">Estimated annual savings if fixed</p>
-                    <p className="text-2xl font-bold text-emerald-400 print:text-green-700">${insight.annual_savings_usd!.toLocaleString()}</p>
-                    <p className="text-xs text-white/40 mt-1 print:text-gray-500">AI-predicted recurrence savings (ROI model)</p>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* World-class analysis */}
+            <InsightAnalysis insight={insight} showBenchmarkBadge showBaselineComparison />
 
-            {/* Risk scores */}
-            <div className="grid gap-6 md:grid-cols-3 mb-6">
-              <RiskBar value={insight.risk_score} label="Overall Risk Score" />
-              <RiskBar value={insight.delay_probability} label="Delay Probability" />
-              <RiskBar value={insight.inventory_risk} label="Inventory Risk" />
-            </div>
-
-            {/* AI Analysis */}
-            <div className="card space-y-6 print:border print:border-gray-200 print:bg-white print:shadow-none">
-              <div className="flex items-center gap-2 pb-4 border-b border-white/10 print:border-gray-100 flex-wrap">
-                {insight.vertical_ai_score != null && (
-                  <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-400 print:border-blue-200 print:bg-blue-50 print:text-blue-700">
-                    Vertical AI Score: {insight.vertical_ai_score}/100
-                  </span>
-                )}
-                <span className="text-white/30 text-xs print:text-gray-400">
-                  {insight.vertical_ai_score != null && (insight.vertical_ai_score >= 70 ? "High confidence analysis" : insight.vertical_ai_score >= 40 ? "Medium confidence" : "Low signal in data")}
-                </span>
-                {insight.expert_reviewed && (
-                  <span className="ml-auto rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-400 font-semibold">
-                    ✓ Reviewed by OpsOracle Expert
-                  </span>
-                )}
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg print:text-gray-900">Executive Summary</h3>
-                <p className="mt-2 text-white/70 leading-relaxed print:text-gray-700">{insight.executive_summary}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg print:text-gray-900">Bottleneck Analysis</h3>
-                <p className="mt-2 text-white/70 leading-relaxed print:text-gray-700">{insight.bottleneck_summary}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg print:text-gray-900">Recommendations</h3>
-                <p className="mt-2 text-white/70 leading-relaxed whitespace-pre-line print:text-gray-700">{insight.recommendations}</p>
-              </div>
-            </div>
-
-            {/* Mark as Resolved — Kai-Fu Lee Action-Feedback Loop */}
+            {/* Mark as Resolved */}
             {!isResolved && (
               <div className="mt-6 card border-white/8 print:hidden">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -380,7 +293,7 @@ export default function ReportDetail() {
 
             {/* Print footer */}
             <div className="hidden print:flex mt-8 border-t border-gray-200 pt-4 text-xs text-gray-400 items-center justify-between">
-              <span>OpsOracle AI — Vertical AI for Industrial Operations</span>
+              <span>OpsOracle AI — Vertical AGI for Industrial Operations</span>
               <span>nanoneuron.ai</span>
             </div>
           </>

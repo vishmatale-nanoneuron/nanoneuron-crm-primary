@@ -56,11 +56,16 @@ class Insight(Base):
     expert_reviewed = Column(Boolean, default=False, server_default="false")
     benchmark_count = Column(Integer, default=0, server_default="0")
     agi_analysis = Column(Boolean, default=False, server_default="false")
-    # Fix 1 — ByteDance telemetry: track which engine produced the analysis
+    # ByteDance telemetry: track which engine produced the analysis
     analysis_method = Column(String(20), default="llm_groq", server_default="llm_groq")
-    # Fix 3 — Alibaba data moat: historical baseline comparison per org
+    # Alibaba data moat: historical baseline comparison per org
     risk_delta = Column(Integer, nullable=True)
     baseline_comparison = Column(Text, nullable=True)
+    # World-class trust layer: evidence, honest confidence, structured actions
+    recommendations_json = Column(Text, nullable=True)   # JSON: [{timeframe,action,owner,impact,urgency}]
+    evidence = Column(Text, nullable=True)               # JSON: ["specific row/pattern that drove each finding"]
+    confidence_level = Column(String(20), nullable=True) # "high" | "medium" | "low" | "insufficient_data"
+    data_quality_issues = Column(Text, nullable=True)    # JSON: ["what couldn't be assessed and why"]
     created_at = Column(DateTime, server_default=func.now())
     report = relationship("Report", back_populates="insights")
 

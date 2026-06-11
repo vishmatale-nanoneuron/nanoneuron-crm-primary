@@ -280,6 +280,10 @@ def demo_analysis(
         analysis_method=result.get("analysis_method", "llm_groq"),
         risk_delta=risk_delta,
         baseline_comparison=baseline_comparison,
+        recommendations_json=result.get("recommendations_json"),
+        evidence=result.get("evidence"),
+        confidence_level=result.get("confidence_level"),
+        data_quality_issues=result.get("data_quality_issues"),
     )
     db.add(insight)
     db.commit()
@@ -355,6 +359,10 @@ async def upload_report(
         analysis_method=result.get("analysis_method", "llm_groq"),
         risk_delta=risk_delta,
         baseline_comparison=baseline_comparison,
+        recommendations_json=result.get("recommendations_json"),
+        evidence=result.get("evidence"),
+        confidence_level=result.get("confidence_level"),
+        data_quality_issues=result.get("data_quality_issues"),
     )
     db.add(insight)
     db.commit()
