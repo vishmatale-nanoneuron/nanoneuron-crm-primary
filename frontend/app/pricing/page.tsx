@@ -124,14 +124,17 @@ export default function Pricing() {
     const token = getToken();
     if (!token) return;
     fetch(`${API}/payments/my-plan`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json()).then((d) => setCurrentPlan(d.plan_tier)).catch(() => {});
+      .then((r) => { if (r.status === 401) { localStorage.removeItem("ops_token"); return null; } return r.json(); })
+      .then((d) => d && setCurrentPlan(d.plan_tier)).catch(() => {});
     fetch(`${API}/payments/bank-transfer/my`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json()).then((d) => Array.isArray(d) && setMyTransfers(d)).catch(() => {});
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => d && Array.isArray(d) && setMyTransfers(d)).catch(() => {});
   }, []);
 
   const openBankSection = useCallback(async (planTier: string) => {
     const token = getToken();
-    if (!token) { router.push("/register?next=/pricing"); return; }
+    if (!token) { router.push("/login?next=/pricing"); return; }
+    if (showBankSection && bankPlan === planTier) { setShowBankSection(false); return; }
     setBankPlan(planTier);
     setShowBankSection(true);
     setBankSubmitted(false);
@@ -139,9 +142,11 @@ export default function Pricing() {
     setBankNotes("");
     setTransferMethod("upi");
     setError("");
+    if (bankDetails) return; // already fetched
     setBankLoading(true);
     try {
       const res = await fetch(`${API}/payments/bank-details`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { localStorage.removeItem("ops_token"); router.push("/login?next=/pricing"); return; }
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Could not fetch bank details."); }
       setBankDetails(await res.json());
     } catch (err: unknown) {
@@ -150,7 +155,7 @@ export default function Pricing() {
     } finally {
       setBankLoading(false);
     }
-  }, [router]);
+  }, [router, showBankSection, bankPlan, bankDetails]);
 
   async function handleBankSubmit(e: React.FormEvent) {
     e.preventDefault();
