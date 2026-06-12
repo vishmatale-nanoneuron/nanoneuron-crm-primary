@@ -15,6 +15,7 @@ class User(Base):
     plan_tier = Column(String(20), default="free", server_default="free")
     email_digest = Column(Boolean, default=True, server_default="true")
     last_digest_sent_at = Column(DateTime, nullable=True)
+    trial_warning_sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     reports = relationship("Report", back_populates="user", cascade="all, delete")
     subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete")

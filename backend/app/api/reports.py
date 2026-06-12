@@ -20,6 +20,15 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 DAILY_FREE_LIMIT = 3
 _DEMO_CACHE: dict[str, dict] = {}  # in-memory per-industry cache for public demo
 
+_PRO_ONLY = ("cost_impact_usd", "annual_savings_usd", "vertical_ai_score", "risk_delta", "baseline_comparison")
+
+
+def _apply_plan_mask(kwargs: dict, is_premium: bool) -> dict:
+    """Null out advertised Pro-only fields for free-tier users at insert time."""
+    if is_premium:
+        return kwargs
+    return {**kwargs, **{f: None for f in _PRO_ONLY}}
+
 
 def _compute_baseline(db: Session, user_id, industry: str, current_risk: int) -> tuple[int | None, str | None]:
     """Fix 3 — Alibaba data moat: compare current analysis vs user's historical baseline.
@@ -280,7 +289,7 @@ def demo_analysis(
     current_risk = int(result.get("risk_score", 0))
     risk_delta, baseline_comparison = _compute_baseline(db, user.id, detected_industry, current_risk)
 
-    insight = Insight(
+    insight_kwargs = _apply_plan_mask(dict(
         report_id=report.id,
         risk_score=current_risk,
         delay_probability=int(result.get("delay_probability", 0)),
@@ -304,7 +313,8 @@ def demo_analysis(
         data_quality_issues=result.get("data_quality_issues"),
         agi_reasoning=result.get("agi_reasoning"),
         causal_chain=result.get("causal_chain"),
-    )
+    ), is_premium)
+    insight = Insight(**insight_kwargs)
     db.add(insight)
     db.commit()
     db.refresh(insight)
@@ -361,7 +371,7 @@ async def upload_report(
     current_risk = int(result.get("risk_score", 0))
     risk_delta, baseline_comparison = _compute_baseline(db, user.id, industry, current_risk)
 
-    insight = Insight(
+    insight_kwargs = _apply_plan_mask(dict(
         report_id=report.id,
         risk_score=current_risk,
         delay_probability=int(result.get("delay_probability", 0)),
@@ -385,7 +395,8 @@ async def upload_report(
         data_quality_issues=result.get("data_quality_issues"),
         agi_reasoning=result.get("agi_reasoning"),
         causal_chain=result.get("causal_chain"),
-    )
+    ), is_premium)
+    insight = Insight(**insight_kwargs)
     db.add(insight)
     db.commit()
     db.refresh(insight)

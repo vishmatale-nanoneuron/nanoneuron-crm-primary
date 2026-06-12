@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.config import settings
-from app.services.email_service import send_all_digests, send_weekly_digest
+from app.services.email_service import send_all_digests, send_weekly_digest, send_all_trial_warnings
 from app.models.models import User
 from app.api.deps import get_current_user
 
@@ -20,8 +20,9 @@ def trigger_digest(secret: str, db: Session = Depends(get_db)):
     digest_secret = getattr(settings, "ADMIN_SECRET", "")
     if not digest_secret or secret != digest_secret:
         raise HTTPException(status_code=403, detail="Invalid secret")
-    result = send_all_digests(db)
-    return {"status": "ok", **result}
+    digest_result = send_all_digests(db)
+    trial_result = send_all_trial_warnings(db)
+    return {"status": "ok", "digest": digest_result, "trial_warnings": trial_result}
 
 
 @router.post("/preview")

@@ -38,6 +38,47 @@ PLANS = {
             "White-label reports",
         ],
     },
+    "pro_annual": {
+        "price_inr": 8999,
+        "price_usd": 99,
+        "label": "OpsOracle Pro (Annual)",
+        "features": [
+            "Unlimited uploads",
+            "AI risk scoring",
+            "Industry benchmarks",
+            "Risk trend dashboard",
+            "Cost ROI analytics",
+            "Vertical AI Score breakdown",
+            "12 months access — save 25%",
+        ],
+    },
+    "enterprise_annual": {
+        "price_inr": 39999,
+        "price_usd": 599,
+        "label": "OpsOracle Enterprise (Annual)",
+        "features": [
+            "Everything in Pro",
+            "REST API access",
+            "Priority support",
+            "Custom industry models",
+            "White-label reports",
+            "12 months access — save 33%",
+        ],
+    },
+}
+
+PLAN_DURATION_DAYS = {
+    "pro": 30,
+    "enterprise": 30,
+    "pro_annual": 365,
+    "enterprise_annual": 365,
+}
+
+PLAN_BASE_TIER = {
+    "pro": "pro",
+    "enterprise": "enterprise",
+    "pro_annual": "pro",
+    "enterprise_annual": "enterprise",
 }
 
 FREE_FEATURES = [
@@ -80,7 +121,7 @@ def _create_cashfree_order(plan_tier: str, plan: dict, user: User) -> tuple[str,
             "link_id": link_id,
             "link_amount": plan["price_inr"],
             "link_currency": "INR",
-            "link_purpose": f"OpsOracle {plan['label']} — 30-day access",
+            "link_purpose": f"{plan['label']} — {'365-day' if '_annual' in plan_tier else '30-day'} access",
             "customer_details": {
                 "customer_id": str(user.id),
                 "customer_email": user.email,
@@ -118,7 +159,7 @@ def _create_stripe_order(plan_tier: str, plan: dict, user: User) -> tuple[str, s
         line_items=[{
             "price_data": {
                 "currency": "usd",
-                "product_data": {"name": plan["label"], "description": "OpsOracle AI — 30-day access"},
+                "product_data": {"name": plan["label"], "description": f"OpsOracle AI — {'365-day' if '_annual' in plan_tier else '30-day'} access"},
                 "unit_amount": plan["price_usd"] * 100,
             },
             "quantity": 1,
@@ -246,14 +287,16 @@ def verify_payment(
     if not sub:
         raise HTTPException(status_code=404, detail="Order not found.")
 
+    duration = PLAN_DURATION_DAYS.get(sub.plan_tier, 30)
+    base_tier = PLAN_BASE_TIER.get(sub.plan_tier, sub.plan_tier)
     sub.gateway_payment_id = str(payment_ref) if payment_ref else None
     sub.status = "active"
     sub.started_at = datetime.utcnow()
-    sub.expires_at = datetime.utcnow() + timedelta(days=30)
-    user.plan_tier = sub.plan_tier
+    sub.expires_at = datetime.utcnow() + timedelta(days=duration)
+    user.plan_tier = base_tier
     db.commit()
 
-    return {"status": "success", "plan_tier": sub.plan_tier, "message": f"Upgraded to {sub.plan_tier}!"}
+    return {"status": "success", "plan_tier": base_tier, "message": f"Upgraded to {sub.plan_tier}!"}
 
 
 @router.get("/my-plan", response_model=PlanResponse)
@@ -272,11 +315,13 @@ def my_plan(db: Session = Depends(get_db), user: User = Depends(get_current_user
         active_sub = None
 
     is_trial = active_sub is not None and active_sub.status == "trial"
+    is_annual = active_sub is not None and "_annual" in (active_sub.plan_tier or "")
     days_remaining = None
     if active_sub and active_sub.expires_at:
         days_remaining = max(0, (active_sub.expires_at - datetime.utcnow()).days)
 
-    features = PLANS.get(tier, {}).get("features", FREE_FEATURES)
+    sub_plan_key = (active_sub.plan_tier if active_sub else None) or tier
+    features = PLANS.get(sub_plan_key, PLANS.get(tier, {})).get("features", FREE_FEATURES)
     return PlanResponse(
         plan_tier=tier,
         status=active_sub.status if active_sub else "free",
@@ -284,4 +329,5 @@ def my_plan(db: Session = Depends(get_db), user: User = Depends(get_current_user
         features=features,
         is_trial=is_trial,
         days_remaining=days_remaining,
+        is_annual=is_annual,
     )

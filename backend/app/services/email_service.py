@@ -231,3 +231,110 @@ def send_all_digests(db: Session) -> dict:
             skipped += 1
 
     return {"sent": sent, "skipped": skipped, "total": len(eligible)}
+
+
+def _trial_warning_html(user_name: str, days_remaining: int, app_url: str) -> str:
+    urgency_color = "#ef4444" if days_remaining <= 1 else "#f59e0b"
+    subject_line = "Your Pro trial ends today" if days_remaining == 0 else f"{days_remaining} day{'s' if days_remaining > 1 else ''} left on your Pro trial"
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>{subject_line}</title></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;">
+  <tr><td align="center" style="padding:40px 20px;">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #222;border-radius:16px;overflow:hidden;">
+      <tr>
+        <td style="padding:32px 40px 24px;border-bottom:1px solid #222;">
+          <p style="margin:0 0 4px;font-size:12px;color:#10b981;letter-spacing:2px;text-transform:uppercase;">OpsOracle AI</p>
+          <h1 style="margin:0;font-size:22px;color:#fff;font-weight:700;">{subject_line}</h1>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:28px 40px;">
+          <p style="margin:0;font-size:15px;color:#aaa;">Hi {user_name},</p>
+          <p style="margin:12px 0;font-size:15px;color:#aaa;line-height:1.6;">
+            {'Your 14-day Pro trial expires today.' if days_remaining == 0 else f'Your 14-day Pro trial ends in <strong style="color:#fff;">{days_remaining} day{"s" if days_remaining > 1 else ""}</strong>.'}
+            After that, your account moves to the free tier — 3 uploads per day, no industry benchmarks,
+            no cost ROI analytics.
+          </p>
+          <div style="background:#1a1a1a;border:1px solid {urgency_color}40;border-radius:12px;padding:20px;margin:20px 0;">
+            <p style="margin:0 0 8px;font-size:12px;color:{urgency_color}99;text-transform:uppercase;letter-spacing:1px;">Pro features you'll lose</p>
+            <ul style="margin:0;padding-left:20px;color:#aaa;font-size:14px;line-height:1.8;">
+              <li>Unlimited report uploads</li>
+              <li>Industry benchmark comparison</li>
+              <li>Cost ROI analytics (cost at risk, annual savings)</li>
+              <li>Risk trend dashboard (compare vs your own history)</li>
+            </ul>
+          </div>
+          <p style="margin:0 0 20px;font-size:14px;color:#aaa;">
+            Upgrade to Pro for ₹999/month to keep full access — or ₹8,999/year (save 25%).
+          </p>
+          <a href="{app_url}/pricing" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;">
+            Keep Pro Access →
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:20px 40px;border-top:1px solid #222;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#444;">OpsOracle AI — Vertical AI for Industrial Operations</p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
+
+
+def send_trial_expiry_warning(user: "User", days_remaining: int, db: Session) -> bool:
+    """Send trial expiry warning. Idempotent — checks trial_warning_sent_at before sending."""
+    if not settings.RESEND_API_KEY:
+        return False
+    if user.trial_warning_sent_at is not None:
+        return False  # already warned
+    try:
+        import resend
+        resend.api_key = settings.RESEND_API_KEY
+        name = user.company_name or user.email.split("@")[0]
+        subject = "Your Pro trial ends today" if days_remaining == 0 else f"{days_remaining} day{'s' if days_remaining > 1 else ''} left on your OpsOracle Pro trial"
+        resend.Emails.send({
+            "from": f"OpsOracle AI <{settings.DIGEST_FROM_EMAIL}>",
+            "to": [user.email],
+            "subject": subject,
+            "html": _trial_warning_html(name, days_remaining, settings.APP_URL),
+        })
+        user.trial_warning_sent_at = datetime.utcnow()
+        db.commit()
+        logger.info("Trial warning sent to %s (%d days)", user.email, days_remaining)
+        return True
+    except Exception as exc:
+        logger.error("Trial warning failed for %s: %s", user.email, exc)
+        return False
+
+
+def send_all_trial_warnings(db: Session) -> dict:
+    """Send trial expiry warnings to users with ≤3 days remaining — called from digest trigger."""
+    from app.models.models import Subscription
+    cutoff = datetime.utcnow() + timedelta(days=3)
+    expiring_subs = (
+        db.query(Subscription)
+        .filter(
+            Subscription.status == "trial",
+            Subscription.expires_at <= cutoff,
+            Subscription.expires_at >= datetime.utcnow(),
+        )
+        .all()
+    )
+    sent = 0
+    skipped = 0
+    for sub in expiring_subs:
+        user = db.query(User).filter(User.id == sub.user_id).first()
+        if not user:
+            continue
+        days_left = max(0, (sub.expires_at - datetime.utcnow()).days)
+        if send_trial_expiry_warning(user, days_left, db):
+            sent += 1
+        else:
+            skipped += 1
+    return {"sent": sent, "skipped": skipped, "total": len(expiring_subs)}

@@ -164,3 +164,4 @@ class PlanResponse(BaseModel):
     features: list[str]
     is_trial: bool = False
     days_remaining: int | None = None
+    is_annual: bool = False

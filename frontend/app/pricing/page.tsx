@@ -77,12 +77,18 @@ const PLANS = [
   },
 ];
 
+const ANNUAL_PRICES: Record<string, { price_inr: string; price_usd: string; per: string; save: string }> = {
+  pro: { price_inr: "₹8,999", price_usd: "$99", per: "per year", save: "Save 25%" },
+  enterprise: { price_inr: "₹39,999", price_usd: "$599", per: "per year", save: "Save 33%" },
+};
+
 export default function Pricing() {
   const router = useRouter();
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
   useEffect(() => {
     const token = getToken();
@@ -95,13 +101,14 @@ export default function Pricing() {
       .catch(() => {});
   }, []);
 
-  async function handleUpgrade(planTier: "pro" | "enterprise", gateway: "cashfree" | "stripe") {
+  async function handleUpgrade(baseTier: "pro" | "enterprise", gateway: "cashfree" | "stripe") {
+    const planTier = billing === "annual" ? `${baseTier}_annual` : baseTier;
     const token = getToken();
     if (!token) {
       router.push("/register?next=/pricing");
       return;
     }
-    setLoading(`${planTier}-${gateway}`);
+    setLoading(`${baseTier}-${gateway}`);
     setError("");
     setSuccess("");
     try {
@@ -157,9 +164,37 @@ export default function Pricing() {
             </div>
           )}
 
+          {/* Billing toggle */}
+          <div className="flex items-center justify-center mb-10">
+            <div className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1">
+              <button
+                onClick={() => setBilling("monthly")}
+                className={`rounded-lg px-5 py-2 text-sm font-medium transition-colors ${
+                  billing === "monthly" ? "bg-white text-black" : "text-white/50 hover:text-white"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setBilling("annual")}
+                className={`flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-medium transition-colors ${
+                  billing === "annual" ? "bg-emerald-500 text-white" : "text-white/50 hover:text-white"
+                }`}
+              >
+                Annual
+                <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-xs text-emerald-400">
+                  Save 25–33%
+                </span>
+              </button>
+            </div>
+          </div>
+
           {/* Pricing cards */}
           <div className="grid md:grid-cols-3 gap-6 mb-16">
             {PLANS.map((plan) => {
+              const annualInfo = billing === "annual" && plan.tier !== "free" ? ANNUAL_PRICES[plan.tier] : null;
+              const displayPrice = annualInfo ? annualInfo.price_inr : plan.price;
+              const displayPeriod = annualInfo ? annualInfo.per : plan.period;
               const isCurrent = currentPlan === plan.tier;
               return (
                 <div
@@ -185,11 +220,21 @@ export default function Pricing() {
                     </div>
                   )}
                   <div className="mb-6">
-                    <h2 className="text-xl font-bold mb-1">{plan.name}</h2>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold text-white">{plan.price}</span>
-                      <span className="text-white/40 text-sm">{plan.period}</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="text-xl font-bold">{plan.name}</h2>
+                      {annualInfo && (
+                        <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-xs text-emerald-400 font-semibold">
+                          {annualInfo.save}
+                        </span>
+                      )}
                     </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-white">{displayPrice}</span>
+                      <span className="text-white/40 text-sm">{displayPeriod}</span>
+                    </div>
+                    {annualInfo && (
+                      <p className="mt-1 text-xs text-white/30">International: {annualInfo.price_usd}/year via Stripe</p>
+                    )}
                   </div>
                   <ul className="space-y-3 mb-8 flex-1">
                     {plan.features.map((f) => (
@@ -267,7 +312,7 @@ export default function Pricing() {
             {[
               {
                 q: "Can I cancel anytime?",
-                a: "Yes. Your plan runs for 30 days from payment. There are no automatic renewals — you pay for each month you want Pro access.",
+                a: "Yes. Monthly plans run 30 days from payment. Annual plans run 365 days from payment. There are no automatic renewals — you choose each period you want Pro access.",
               },
               {
                 q: "Is my operational data safe?",
