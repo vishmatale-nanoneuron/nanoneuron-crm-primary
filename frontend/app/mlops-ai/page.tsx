@@ -48,6 +48,11 @@ export const metadata: Metadata = {
       "Detect model accuracy drift before customers notice. OpsOracle AI monitors training pipeline health, feature drift scores and inference latency SLA breaches automatically.",
     url: "https://nanoneuron.ai/mlops-ai",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "MLOps AI — Model Drift Detection, Training Pipeline Health & Inference Monitoring",
+    description: "Detect model accuracy drift before customers notice. Upload model logs, get drift scores and latency SLA breach alerts in 30 seconds.",
+  },
 };
 
 const capabilities = [
@@ -101,10 +106,20 @@ const faqJsonLd = {
   ],
 };
 
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://nanoneuron.ai" },
+    { "@type": "ListItem", position: 2, name: "MLOps AI", item: "https://nanoneuron.ai/mlops-ai" },
+  ],
+};
+
 export default function MLOpsAI() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <header>
       <nav aria-label="Main navigation" className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">

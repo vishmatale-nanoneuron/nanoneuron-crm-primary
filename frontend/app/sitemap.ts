@@ -12,8 +12,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/supply-chain-ai`,      lastModified: now, changeFrequency: "monthly", priority: 0.9 },
     { url: `${base}/devops-ai`,            lastModified: now, changeFrequency: "monthly", priority: 0.9 },
     { url: `${base}/mlops-ai`,             lastModified: now, changeFrequency: "monthly", priority: 0.9 },
-    { url: `${base}/pricing`,              lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${base}/register`,             lastModified: now, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${base}/login`,                lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${base}/pricing`,                                lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${base}/register`,                             lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/login`,                                lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    // High-intent tool pages — calculator queries
+    { url: `${base}/manufacturing-ai/oee-calculator`,      lastModified: now, changeFrequency: "yearly",  priority: 0.85 },
+    { url: `${base}/logistics-ai/otif-calculator`,         lastModified: now, changeFrequency: "yearly",  priority: 0.85 },
+    { url: `${base}/devops-ai/dora-metrics-calculator`,    lastModified: now, changeFrequency: "yearly",  priority: 0.85 },
   ];
 }

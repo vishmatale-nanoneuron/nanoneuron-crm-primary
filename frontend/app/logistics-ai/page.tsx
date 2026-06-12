@@ -48,6 +48,11 @@ export const metadata: Metadata = {
       "Predict shipment delays and carrier SLA breaches before they cascade. OpsOracle AI analyzes your freight data in under 30 seconds.",
     url: "https://nanoneuron.ai/logistics-ai",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Logistics AI — Shipment Delay Prediction & Freight Risk Analysis",
+    description: "Predict shipment delays and carrier SLA breaches before they cascade. Upload freight CSV, get AI risk analysis in 30 seconds.",
+  },
 };
 
 const capabilities = [
@@ -101,10 +106,20 @@ const faqJsonLd = {
   ],
 };
 
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://nanoneuron.ai" },
+    { "@type": "ListItem", position: 2, name: "Logistics AI", item: "https://nanoneuron.ai/logistics-ai" },
+  ],
+};
+
 export default function LogisticsAI() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <header>
       <nav aria-label="Main navigation" className="fixed top-0 left-0 right-0 z-50 border-b border-white/8 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
