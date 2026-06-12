@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PainSolver } from "@/components/PainSolver";
 import { IndustryKPIShowcase, VerticalFooter } from "@/components/IndustryKPIShowcase";
+import { VerticalOutputPreview } from "@/components/VerticalOutputPreview";
 
 const MLOPS_PAINS = [
   {
@@ -200,6 +201,8 @@ export default function MLOpsAI() {
           </div>
         </div>
       </section>
+
+      <VerticalOutputPreview industry="mlops" />
 
       <section aria-label="Get started" className="px-6 py-24 border-t border-white/8">
         <div className="mx-auto max-w-3xl text-center">
