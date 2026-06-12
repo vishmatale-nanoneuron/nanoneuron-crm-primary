@@ -29,6 +29,8 @@ export type InsightData = {
   data_quality_issues?: string | null;
   agi_reasoning?: string | null;
   causal_chain?: string | null;
+  kpi_json?: string | null;
+  benchmark_comparison_json?: string | null;
 };
 
 type CausalChainData = {
@@ -269,6 +271,106 @@ function DataQualitySection({ issues }: { issues: string | null | undefined }) {
   );
 }
 
+type KPIEntry = { label?: string; yours: number; industry_avg: number; industry_count: number; delta: number };
+type BenchmarkMap = Record<string, KPIEntry>;
+
+function KPIBar({ value, unit, lowerIsBetter }: { value: number; unit?: string; lowerIsBetter?: boolean }) {
+  const pct = Math.min(100, Math.max(0, value));
+  const color = lowerIsBetter
+    ? (value <= 10 ? "bg-emerald-500" : value <= 30 ? "bg-yellow-500" : "bg-red-500")
+    : (value >= 80 ? "bg-emerald-500" : value >= 50 ? "bg-yellow-500" : "bg-red-500");
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm font-semibold text-white min-w-[56px] text-right">
+        {value}{unit === "%" ? "%" : unit ? ` ${unit}` : ""}
+      </span>
+      {unit === "%" && (
+        <div className="flex-1 h-1.5 rounded-full bg-white/10">
+          <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${pct}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IndustryKPIPanel({ kpiJson }: { kpiJson: string | null | undefined }) {
+  const kpis = parseJson<Record<string, number>>(kpiJson, {});
+  const entries = Object.entries(kpis).filter(([, v]) => v != null);
+  if (!entries.length) return null;
+  return (
+    <div className="rounded-xl border border-blue-500/15 bg-blue-500/5 p-5 print:border-blue-200">
+      <h3 className="font-semibold text-sm text-blue-400 mb-4 flex items-center gap-2 print:text-blue-700">
+        <span aria-hidden="true">📊</span>
+        Industry KPIs — computed from your data
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {entries.map(([key, val]) => {
+          const label = key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+          const unit = key.includes("_ms") ? "ms" : key.includes("_days") || key.includes("day_") ? "days" : "%";
+          const lowerIsBetter = key.includes("delay") || key.includes("fail") || key.includes("stockout")
+            || key.includes("return") || key.includes("critical") || key.includes("downtime")
+            || key.includes("defect") || key.includes("drift") || key.includes("variance")
+            || key.includes("mttr") || key.includes("retraining");
+          return (
+            <div key={key} className="flex items-center justify-between gap-3 py-2 border-b border-white/5 last:border-0">
+              <span className="text-sm text-white/60 print:text-gray-600">{label}</span>
+              <KPIBar value={typeof val === "number" ? Math.round(val * 10) / 10 : Number(val)} unit={unit} lowerIsBetter={lowerIsBetter} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BenchmarkComparison({ benchmarkJson, industry }: { benchmarkJson: string | null | undefined; industry: string }) {
+  const data = parseJson<BenchmarkMap>(benchmarkJson, {});
+  const entries = Object.entries(data);
+  if (!entries.length) return null;
+  const count = entries[0]?.[1]?.industry_count ?? 0;
+  return (
+    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5 print:border-green-200">
+      <h3 className="font-semibold text-sm text-emerald-400 mb-1 flex items-center gap-2 print:text-green-700">
+        <span aria-hidden="true">◉</span>
+        Benchmark Comparison — you vs {count} {industry.replace("_", " ")} operations
+      </h3>
+      <p className="text-xs text-white/30 mb-4">Industry averages from anonymized OpsOracle data</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/10">
+              <th className="text-left text-xs text-white/40 pb-2 font-medium">KPI</th>
+              <th className="text-right text-xs text-white/40 pb-2 font-medium">Yours</th>
+              <th className="text-right text-xs text-white/40 pb-2 font-medium">Industry Avg</th>
+              <th className="text-right text-xs text-white/40 pb-2 font-medium">vs Avg</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map(([key, entry]) => {
+              const lowerIsBetter = key.includes("delay") || key.includes("fail") || key.includes("stockout")
+                || key.includes("return") || key.includes("critical") || key.includes("downtime")
+                || key.includes("defect") || key.includes("drift") || key.includes("variance")
+                || key.includes("mttr") || key.includes("retraining");
+              const isGood = lowerIsBetter ? entry.delta <= 0 : entry.delta >= 0;
+              const unit = key.includes("_ms") ? " ms" : key.includes("_days") || key.includes("day_") ? " d" : "%";
+              return (
+                <tr key={key} className="border-b border-white/5 last:border-0">
+                  <td className="py-2.5 text-white/70 print:text-gray-700">{entry.label || key.replace(/_/g, " ")}</td>
+                  <td className="py-2.5 text-right font-semibold text-white">{entry.yours}{unit}</td>
+                  <td className="py-2.5 text-right text-white/40">{entry.industry_avg}{unit}</td>
+                  <td className={`py-2.5 text-right font-semibold ${isGood ? "text-emerald-400" : "text-red-400"}`}>
+                    {isGood ? "▲" : "▼"} {Math.abs(entry.delta)}{unit} {isGood ? "better" : "worse"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 type Props = {
   insight: InsightData;
   showBenchmarkBadge?: boolean;
@@ -357,6 +459,17 @@ export default function InsightAnalysis({ insight, showBenchmarkBadge = true, sh
             </div>
           )}
         </div>
+      )}
+
+      {/* Industry KPIs — computed from actual data, shown to all tiers */}
+      <IndustryKPIPanel kpiJson={insight.kpi_json} />
+
+      {/* Benchmark comparison — Pro only (null for free users via server-side mask) */}
+      {insight.benchmark_comparison_json && (
+        <BenchmarkComparison
+          benchmarkJson={insight.benchmark_comparison_json}
+          industry={industry}
+        />
       )}
 
       {/* Risk score grid */}

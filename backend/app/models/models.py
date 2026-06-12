@@ -69,6 +69,8 @@ class Insight(Base):
     data_quality_issues = Column(Text, nullable=True)    # JSON: ["what couldn't be assessed and why"]
     agi_reasoning = Column(Text, nullable=True)          # JSON: ["Step 1: ...", ..., "Step 5: ..."] — chain-of-thought
     causal_chain = Column(Text, nullable=True)           # JSON: {root_cause, trigger, cascade, intervention_window, if_ignored}
+    kpi_json = Column(Text, nullable=True)               # JSON: {kpi_key: float} — industry KPIs computed from data
+    benchmark_comparison_json = Column(Text, nullable=True)  # JSON: {kpi_key: {yours, industry_avg, count}} — Pro only
     created_at = Column(DateTime, server_default=func.now())
     report = relationship("Report", back_populates="insights")
 
@@ -101,4 +103,5 @@ class IndustryBenchmark(Base):
     sum_delay_probability = Column(BigInteger, default=0)
     sum_inventory_risk = Column(BigInteger, default=0)
     report_count = Column(Integer, default=0)
+    kpi_sums_json = Column(Text, nullable=True)  # JSON: {kpi_key: {sum: float, count: int}}
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

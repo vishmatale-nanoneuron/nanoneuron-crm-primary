@@ -1,3 +1,4 @@
+import json
 import secrets
 import uuid as _uuid
 from datetime import datetime
@@ -13,14 +14,28 @@ from app.schemas.schemas import (
 )
 from app.api.deps import get_current_user
 from app.services.file_parser import parse_uploaded_file
-from app.services.ai_service import analyze_operations, classify_sub_vertical
+from app.services.ai_service import analyze_operations, classify_sub_vertical, INDUSTRY_KPI_DEFINITIONS
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 DAILY_FREE_LIMIT = 3
 _DEMO_CACHE: dict[str, dict] = {}  # in-memory per-industry cache for public demo
 
-_PRO_ONLY = ("cost_impact_usd", "annual_savings_usd", "vertical_ai_score", "risk_delta", "baseline_comparison")
+_PRO_ONLY = (
+    "cost_impact_usd", "annual_savings_usd", "vertical_ai_score",
+    "risk_delta", "baseline_comparison", "benchmark_comparison_json",
+)
+
+
+def _parse_kpis(raw: str | None) -> dict:
+    """Safely parse industry_kpis JSON string from AI result."""
+    if not raw:
+        return {}
+    try:
+        obj = json.loads(raw) if isinstance(raw, str) else raw
+        return {k: v for k, v in obj.items() if v is not None} if isinstance(obj, dict) else {}
+    except (json.JSONDecodeError, TypeError):
+        return {}
 
 
 def _apply_plan_mask(kwargs: dict, is_premium: bool) -> dict:
@@ -195,8 +210,14 @@ def _check_daily_limit(user: User, db: Session) -> None:
         )
 
 
-def _update_benchmark(db: Session, industry: str, risk: int, delay: int, inventory: int) -> int:
-    """Update anonymized industry benchmark and return the new report_count."""
+def _update_benchmark(
+    db: Session, industry: str, risk: int, delay: int, inventory: int,
+    kpis: dict | None = None,
+) -> tuple[int, dict]:
+    """Update industry benchmark and return (report_count, kpi_averages_dict).
+
+    kpi_averages_dict: {kpi_key: {"avg": float, "count": int}} after this upload.
+    """
     bench = db.query(IndustryBenchmark).filter(IndustryBenchmark.industry == industry).first()
     if bench:
         bench.sum_risk_score += risk
@@ -212,7 +233,64 @@ def _update_benchmark(db: Session, industry: str, risk: int, delay: int, invento
             report_count=1,
         )
         db.add(bench)
-    return bench.report_count
+        db.flush()
+
+    # Accumulate KPI sums for benchmarking
+    kpi_sums: dict = {}
+    try:
+        if bench.kpi_sums_json:
+            kpi_sums = json.loads(bench.kpi_sums_json)
+    except (json.JSONDecodeError, TypeError):
+        kpi_sums = {}
+
+    if kpis:
+        for key, val in kpis.items():
+            if val is None:
+                continue
+            try:
+                fval = float(val)
+            except (TypeError, ValueError):
+                continue
+            entry = kpi_sums.get(key, {"sum": 0.0, "count": 0})
+            entry["sum"] = entry.get("sum", 0.0) + fval
+            entry["count"] = entry.get("count", 0) + 1
+            kpi_sums[key] = entry
+
+    bench.kpi_sums_json = json.dumps(kpi_sums) if kpi_sums else None
+    db.commit()
+
+    # Build averages dict for comparison
+    kpi_averages: dict = {}
+    for key, entry in kpi_sums.items():
+        c = entry.get("count", 0)
+        if c > 0:
+            kpi_averages[key] = {"avg": round(entry["sum"] / c, 1), "count": c}
+
+    return bench.report_count, kpi_averages
+
+
+def _compute_kpi_comparison(kpis: dict, averages: dict, industry: str) -> str | None:
+    """Build benchmark_comparison_json for Pro users: their KPIs vs industry avg."""
+    defs = INDUSTRY_KPI_DEFINITIONS.get(industry, {})
+    comparison: dict = {}
+    for key, avg_data in averages.items():
+        user_val = kpis.get(key)
+        if user_val is None:
+            continue
+        try:
+            user_float = float(user_val)
+        except (TypeError, ValueError):
+            continue
+        label = defs.get(key, key.replace("_", " ").title())
+        delta = round(user_float - avg_data["avg"], 1)
+        comparison[key] = {
+            "label": label,
+            "yours": round(user_float, 1),
+            "industry_avg": avg_data["avg"],
+            "industry_count": avg_data["count"],
+            "delta": delta,
+        }
+    return json.dumps(comparison) if comparison else None
 
 
 # ── Public endpoints (no auth) — must come before /{report_id} ──────────────
@@ -279,15 +357,18 @@ def demo_analysis(
     db.commit()
     db.refresh(report)
 
-    benchmark_count = _update_benchmark(
+    raw_kpis_demo = _parse_kpis(result.get("industry_kpis"))
+    benchmark_count, kpi_averages = _update_benchmark(
         db, detected_industry,
         int(result.get("risk_score", 0)),
         int(result.get("delay_probability", 0)),
         int(result.get("inventory_risk", 0)),
+        raw_kpis_demo,
     )
 
     current_risk = int(result.get("risk_score", 0))
     risk_delta, baseline_comparison = _compute_baseline(db, user.id, detected_industry, current_risk)
+    benchmark_comparison = _compute_kpi_comparison(raw_kpis_demo, kpi_averages, detected_industry) if is_premium and raw_kpis_demo else None
 
     insight_kwargs = _apply_plan_mask(dict(
         report_id=report.id,
@@ -313,6 +394,8 @@ def demo_analysis(
         data_quality_issues=result.get("data_quality_issues"),
         agi_reasoning=result.get("agi_reasoning"),
         causal_chain=result.get("causal_chain"),
+        kpi_json=result.get("industry_kpis"),
+        benchmark_comparison_json=benchmark_comparison,
     ), is_premium)
     insight = Insight(**insight_kwargs)
     db.add(insight)
@@ -361,15 +444,18 @@ async def upload_report(
     db.commit()
     db.refresh(report)
 
-    benchmark_count = _update_benchmark(
+    raw_kpis = _parse_kpis(result.get("industry_kpis"))
+    benchmark_count, kpi_averages = _update_benchmark(
         db, industry,
         int(result.get("risk_score", 0)),
         int(result.get("delay_probability", 0)),
         int(result.get("inventory_risk", 0)),
+        raw_kpis,
     )
 
     current_risk = int(result.get("risk_score", 0))
     risk_delta, baseline_comparison = _compute_baseline(db, user.id, industry, current_risk)
+    benchmark_comparison = _compute_kpi_comparison(raw_kpis, kpi_averages, industry) if is_premium and raw_kpis else None
 
     insight_kwargs = _apply_plan_mask(dict(
         report_id=report.id,
@@ -395,6 +481,8 @@ async def upload_report(
         data_quality_issues=result.get("data_quality_issues"),
         agi_reasoning=result.get("agi_reasoning"),
         causal_chain=result.get("causal_chain"),
+        kpi_json=result.get("industry_kpis"),
+        benchmark_comparison_json=benchmark_comparison,
     ), is_premium)
     insight = Insight(**insight_kwargs)
     db.add(insight)

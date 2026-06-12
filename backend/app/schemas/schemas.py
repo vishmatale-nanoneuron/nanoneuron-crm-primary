@@ -69,6 +69,8 @@ class InsightResponse(BaseModel):
     data_quality_issues: str | None = None
     agi_reasoning: str | None = None
     causal_chain: str | None = None
+    kpi_json: str | None = None
+    benchmark_comparison_json: str | None = None
     created_at: datetime
 
     class Config:

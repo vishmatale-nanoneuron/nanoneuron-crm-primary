@@ -22,6 +22,106 @@ INDUSTRY_CONTEXT = {
     "operations": "Focus on overall operational efficiency, process bottlenecks, resource utilization, and output quality.",
 }
 
+INDUSTRY_KPI_DEFINITIONS = {
+    "logistics": {
+        "otif_pct": "On-Time In-Full %",
+        "delay_rate_pct": "Delay Rate %",
+        "avg_delay_days": "Avg Delay Days",
+        "carrier_failure_rate_pct": "Worst Carrier Failure Rate %",
+    },
+    "manufacturing": {
+        "oee_pct": "Overall Equipment Effectiveness %",
+        "downtime_pct": "Downtime %",
+        "defect_rate_pct": "Defect Rate %",
+        "machine_availability_pct": "Machine Availability %",
+    },
+    "warehouse": {
+        "stockout_rate_pct": "Stockout Rate %",
+        "fill_rate_pct": "Fill Rate %",
+        "critical_items_pct": "Critical Stock Items %",
+        "avg_days_of_supply": "Avg Days of Supply",
+    },
+    "retail": {
+        "sell_through_pct": "Sell-Through Rate %",
+        "stockout_pct": "Lines Stocked Out %",
+        "return_rate_pct": "Return Rate %",
+        "avg_days_until_stockout": "Avg Days Until Stockout",
+    },
+    "supply_chain": {
+        "otd_pct": "Supplier On-Time Delivery %",
+        "critical_supplier_pct": "Critical Risk Suppliers %",
+        "avg_lead_variance_pct": "Lead Time Variance %",
+        "high_risk_pct": "High+Critical Risk Suppliers %",
+    },
+    "devops": {
+        "deploy_success_rate_pct": "Deploy Success Rate %",
+        "mttr_mins": "Mean Time to Recovery (mins)",
+        "change_failure_rate_pct": "Change Failure Rate %",
+        "p1_incident_rate": "P1 Incidents per 10 Deploys",
+    },
+    "mlops": {
+        "avg_model_accuracy_pct": "Avg Model Accuracy %",
+        "p99_latency_ms": "P99 Latency (ms)",
+        "avg_data_drift_score": "Avg Data Drift Score",
+        "retraining_rate_pct": "Models Needing Retraining %",
+    },
+    "operations": {
+        "on_time_rate_pct": "On-Time Rate %",
+        "failure_rate_pct": "Failure Rate %",
+        "issue_density": "Issues per 10 Records",
+    },
+}
+
+INDUSTRY_KPI_PROMPT = {
+    "logistics": (
+        '{"otif_pct": <pct shipments with Actual Date <= Scheduled Date or Status=Delivered>, '
+        '"delay_rate_pct": <pct rows where Status=Delayed>, '
+        '"avg_delay_days": <mean(Actual Date - Scheduled Date) for delayed rows, float>, '
+        '"carrier_failure_rate_pct": <pct failures for the worst-performing carrier>}'
+    ),
+    "manufacturing": (
+        '{"oee_pct": <Actual Output / Planned Output × 100 avg across all rows>, '
+        '"downtime_pct": <sum(Downtime_mins) / (total rows × 480 mins per shift) × 100>, '
+        '"defect_rate_pct": <sum(Defects) / sum(Actual Output) × 100>, '
+        '"machine_availability_pct": <pct rows where Downtime_mins < 30>}'
+    ),
+    "warehouse": (
+        '{"stockout_rate_pct": <pct SKUs where Current_Stock = 0>, '
+        '"fill_rate_pct": <pct SKUs where Current_Stock > Reorder_Point>, '
+        '"critical_items_pct": <pct SKUs where Current_Stock <= Reorder_Point>, '
+        '"avg_days_of_supply": <mean(Current_Stock / Daily_Demand) where Daily_Demand > 0>}'
+    ),
+    "retail": (
+        '{"sell_through_pct": <mean Sell_Through_Pct across all rows>, '
+        '"stockout_pct": <pct rows where Days_Until_Stockout = 0>, '
+        '"return_rate_pct": <mean(Returns / Weekly_Sales) × 100 where Weekly_Sales > 0>, '
+        '"avg_days_until_stockout": <mean Days_Until_Stockout across all rows>}'
+    ),
+    "supply_chain": (
+        '{"otd_pct": <mean OTD_Pct across all suppliers>, '
+        '"critical_supplier_pct": <pct suppliers where Risk = CRITICAL>, '
+        '"avg_lead_variance_pct": <mean |Lead_Time_Days - Promised_Lead_Days| / Promised_Lead_Days × 100>, '
+        '"high_risk_pct": <pct suppliers where Risk in [HIGH, CRITICAL]>}'
+    ),
+    "devops": (
+        '{"deploy_success_rate_pct": <pct deploy rows where Status = SUCCESS>, '
+        '"mttr_mins": <mean MTTR_Mins for incident rows where MTTR_Mins > 0>, '
+        '"change_failure_rate_pct": <pct of deploys that have a corresponding incident>, '
+        '"p1_incident_rate": <count P1 incidents / count deploys × 10>}'
+    ),
+    "mlops": (
+        '{"avg_model_accuracy_pct": <mean Accuracy_Pct for HEALTHY/SUCCESS rows>, '
+        '"p99_latency_ms": <max Latency_P99_Ms across rows with status not FAILED>, '
+        '"avg_data_drift_score": <mean Data_Drift_Score across all rows>, '
+        '"retraining_rate_pct": <pct rows where Retraining_Required = YES>}'
+    ),
+    "operations": (
+        '{"on_time_rate_pct": <% records without delay/fail signals>, '
+        '"failure_rate_pct": <% records with failure/error signals>, '
+        '"issue_density": <count issues / count records × 10>}'
+    ),
+}
+
 COST_MULTIPLIERS = {
     "logistics": 250, "manufacturing": 800, "warehouse": 200,
     "retail": 150, "supply_chain": 400, "devops": 600, "mlops": 900, "operations": 300,
@@ -242,6 +342,7 @@ def analyze_operations(extracted_text: str) -> dict:
 
     focused_text = _extract_key_rows(extracted_text, client, model)
 
+    kpi_template = INDUSTRY_KPI_PROMPT.get(industry, INDUSTRY_KPI_PROMPT["operations"])
     prompt = f"""You are OpsOracle AI — a vertical AI for {industry} operations teams.
 {industry_hint}
 
@@ -294,6 +395,9 @@ causal_chain: JSON object — causal analysis GROUNDED IN THIS DATA ONLY. Never 
   "if_ignored": "honest trajectory from current data patterns — qualitative direction only, no fabricated numbers"}}
 
 industry_detected: one of: logistics | manufacturing | warehouse | retail | supply_chain | devops | mlops | operations
+
+industry_kpis: JSON object — compute ONLY the KPIs you can derive from the actual column values. Use null for any KPI you cannot compute. Never fabricate numbers. Template for this industry ({industry}):
+{kpi_template}
 
 cost_impact_usd: integer — total USD at risk this period. 0 if no issues found. Ground this in actual row data where possible.
 
@@ -352,6 +456,14 @@ DATA TO ANALYZE:
             result["causal_chain"] = json.dumps(cc)
         elif not isinstance(cc, str):
             result["causal_chain"] = json.dumps({})
+
+        # Ensure industry_kpis is a valid JSON string; drop null values
+        kpis = result.get("industry_kpis")
+        if isinstance(kpis, dict):
+            clean = {k: v for k, v in kpis.items() if v is not None}
+            result["industry_kpis"] = json.dumps(clean) if clean else None
+        else:
+            result["industry_kpis"] = None
 
         # Annual savings: use LLM value if present and non-zero, else industry multiplier
         if not result.get("annual_savings_usd"):
