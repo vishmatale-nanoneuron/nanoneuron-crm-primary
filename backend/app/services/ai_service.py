@@ -328,6 +328,70 @@ def _extract_key_rows(text: str, client, model: str) -> str:
     return text
 
 
+def _critique_grounding(result: dict, client, model: str) -> dict:
+    """Grounding audit — inverted CAI: verify claims in summaries trace to evidence items.
+    Only softens unsupported claims. Never adds new specifics not already in the summaries."""
+    evidence_items: list = []
+    try:
+        evidence_items = json.loads(result.get("evidence") or "[]")
+    except Exception:
+        pass
+
+    executive_summary = result.get("executive_summary", "")
+    bottleneck_summary = result.get("bottleneck_summary", "")
+
+    if not evidence_items or not executive_summary:
+        return {"grounding_ok": True, "executive_summary": executive_summary,
+                "bottleneck_summary": bottleneck_summary, "notes": "No evidence to cross-check"}
+
+    evidence_text = "\n".join(f"- {item}" for item in evidence_items[:8])
+
+    prompt = f"""You are a grounding auditor for an AI operations analysis system.
+Your ONLY job: check whether specific factual claims in the summaries are supported by the evidence items below.
+
+EVIDENCE FROM DATA:
+{evidence_text}
+
+EXECUTIVE SUMMARY:
+{executive_summary}
+
+BOTTLENECK SUMMARY:
+{bottleneck_summary}
+
+RULES — read carefully:
+1. A claim is grounded if the specific item name, number, or pattern it asserts appears in at least one evidence item above.
+2. If a claim cites a specific number or item name NOT in the evidence, soften it. Example: "M2-Lathe had exactly 3 breakdowns" → "a lathe showed repeated breakdowns" when the count is not evidenced.
+3. You may NEVER add new information, new names, new numbers, or new claims that are not already present in the summaries.
+4. If all claims are grounded, return both summaries UNCHANGED and set grounding_ok to true.
+5. Keep the same approximate length and structure — only edit specific unsupported claims.
+
+Return JSON only:
+{{"grounding_ok": true, "executive_summary": "...", "bottleneck_summary": "...", "notes": "All claims grounded"}}
+or
+{{"grounding_ok": false, "executive_summary": "...", "bottleneck_summary": "...", "notes": "Softened: <brief description of what was changed and why>"}}"""
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=800,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content or "{}"
+        audit = json.loads(raw)
+        return {
+            "grounding_ok": bool(audit.get("grounding_ok", True)),
+            "executive_summary": audit.get("executive_summary") or executive_summary,
+            "bottleneck_summary": audit.get("bottleneck_summary") or bottleneck_summary,
+            "notes": audit.get("notes") or "",
+        }
+    except Exception as exc:
+        logger.warning("Grounding audit skipped: %s", exc)
+        return {"grounding_ok": True, "executive_summary": executive_summary,
+                "bottleneck_summary": bottleneck_summary, "notes": "Audit skipped"}
+
+
 def analyze_operations(extracted_text: str) -> dict:
     industry    = classify_industry(extracted_text)
     sub_vertical = classify_sub_vertical(industry, extracted_text)
@@ -474,10 +538,20 @@ DATA TO ANALYZE:
 
         result["sub_vertical"]    = sub_vertical
         result["analysis_method"] = analysis_method
+
+        # Grounding audit: only softens unsupported claims, never adds new specifics
+        audit = _critique_grounding(result, client, model)
+        result["executive_summary"]  = audit["executive_summary"]
+        result["bottleneck_summary"] = audit["bottleneck_summary"]
+        result["cai_revised"]        = not audit["grounding_ok"]
+        result["cai_critique_notes"] = audit["notes"]
+
         return result
 
     except Exception as exc:
         logger.error("AI analysis failed (%s): %s", model, exc, exc_info=True)
         result = _fallback_analysis(extracted_text, industry)
-        result["sub_vertical"] = sub_vertical
+        result["sub_vertical"]       = sub_vertical
+        result["cai_revised"]        = False
+        result["cai_critique_notes"] = None
         return result

@@ -2,7 +2,8 @@ import json
 import secrets
 import uuid as _uuid
 from datetime import datetime
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
+import json as _json
+from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, HTTPException
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -396,6 +397,8 @@ def demo_analysis(
         causal_chain=result.get("causal_chain"),
         kpi_json=result.get("industry_kpis"),
         benchmark_comparison_json=benchmark_comparison,
+        cai_revised=result.get("cai_revised", False),
+        cai_critique_notes=result.get("cai_critique_notes"),
     ), is_premium)
     insight = Insight(**insight_kwargs)
     db.add(insight)
@@ -416,6 +419,7 @@ def daily_usage(db: Session = Depends(get_db), user: User = Depends(get_current_
 
 @router.post("/upload", response_model=InsightResponse)
 async def upload_report(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -483,11 +487,35 @@ async def upload_report(
         causal_chain=result.get("causal_chain"),
         kpi_json=result.get("industry_kpis"),
         benchmark_comparison_json=benchmark_comparison,
+        cai_revised=result.get("cai_revised", False),
+        cai_critique_notes=result.get("cai_critique_notes"),
     ), is_premium)
     insight = Insight(**insight_kwargs)
     db.add(insight)
     db.commit()
     db.refresh(insight)
+
+    if current_risk >= 70 and getattr(user, "risk_alerts", True):
+        from app.services.email_service import send_high_risk_alert
+        rec_list = []
+        try:
+            rec_list = _json.loads(result.get("recommendations_json") or "[]") or []
+        except Exception:
+            pass
+        top_action = rec_list[0].get("action", "") if rec_list else ""
+        background_tasks.add_task(
+            send_high_risk_alert,
+            user.email,
+            user.company_name or user.email.split("@")[0],
+            current_risk,
+            result.get("bottleneck_summary", ""),
+            top_action,
+            industry,
+            str(report.id),
+            int(result.get("cost_impact_usd") or 0),
+            settings.APP_URL,
+        )
+
     return insight
 
 

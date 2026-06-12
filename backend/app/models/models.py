@@ -14,6 +14,7 @@ class User(Base):
     company_name = Column(String(255), nullable=False)
     plan_tier = Column(String(20), default="free", server_default="free")
     email_digest = Column(Boolean, default=True, server_default="true")
+    risk_alerts = Column(Boolean, default=True, server_default="true")
     last_digest_sent_at = Column(DateTime, nullable=True)
     trial_warning_sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -71,6 +72,9 @@ class Insight(Base):
     causal_chain = Column(Text, nullable=True)           # JSON: {root_cause, trigger, cascade, intervention_window, if_ignored}
     kpi_json = Column(Text, nullable=True)               # JSON: {kpi_key: float} — industry KPIs computed from data
     benchmark_comparison_json = Column(Text, nullable=True)  # JSON: {kpi_key: {yours, industry_avg, count}} — Pro only
+    # Grounding audit: were any claims softened for accuracy?
+    cai_revised = Column(Boolean, default=False, server_default="false", nullable=True)
+    cai_critique_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     report = relationship("Report", back_populates="insights")
 

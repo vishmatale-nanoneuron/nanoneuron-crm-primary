@@ -67,6 +67,11 @@ def _run_migrations() -> None:
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS kpi_json TEXT",
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS benchmark_comparison_json TEXT",
         "ALTER TABLE ops_industry_benchmarks ADD COLUMN IF NOT EXISTS kpi_sums_json TEXT",
+        # v4.0.0 instant high-risk alerts (opt-out, default on)
+        "ALTER TABLE ops_users ADD COLUMN IF NOT EXISTS risk_alerts BOOLEAN DEFAULT TRUE",
+        # v4.1.0 grounding audit — AI self-review that only softens, never adds
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS cai_revised BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS cai_critique_notes TEXT",
     ]
     try:
         with engine.connect() as conn:

@@ -31,6 +31,8 @@ export type InsightData = {
   causal_chain?: string | null;
   kpi_json?: string | null;
   benchmark_comparison_json?: string | null;
+  cai_revised?: boolean;
+  cai_critique_notes?: string | null;
 };
 
 type CausalChainData = {
@@ -492,6 +494,19 @@ export default function InsightAnalysis({ insight, showBenchmarkBadge = true, sh
           {isAgi && (
             <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs text-violet-400 font-semibold print:hidden">
               ⚡ Vertical AGI Analysis
+            </span>
+          )}
+          {insight.cai_revised && (
+            <span
+              className="rounded-full border border-violet-500/30 bg-violet-500/8 px-2.5 py-1 text-xs text-violet-400 print:hidden"
+              title={insight.cai_critique_notes || "AI grounding audit softened an unsupported claim"}
+            >
+              AI grounding-checked
+            </span>
+          )}
+          {!insight.cai_revised && insight.cai_critique_notes && insight.cai_critique_notes !== "No evidence to cross-check" && insight.cai_critique_notes !== "Audit skipped" && (
+            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1 text-xs text-emerald-400/70 print:hidden">
+              All claims grounded
             </span>
           )}
           {insight.expert_reviewed && (

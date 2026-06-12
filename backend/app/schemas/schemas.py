@@ -71,6 +71,8 @@ class InsightResponse(BaseModel):
     causal_chain: str | None = None
     kpi_json: str | None = None
     benchmark_comparison_json: str | None = None
+    cai_revised: bool = False
+    cai_critique_notes: str | None = None
     created_at: datetime
 
     class Config:
