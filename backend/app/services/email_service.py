@@ -313,6 +313,76 @@ def send_trial_expiry_warning(user: "User", days_remaining: int, db: Session) ->
         return False
 
 
+def notify_admin_bank_transfer(user_email: str, plan_tier: str, amount_inr: int, utr: str, method: str) -> None:
+    """Email admin when a new bank transfer is submitted and needs approval."""
+    if not settings.RESEND_API_KEY or not settings.ADMIN_EMAIL:
+        return
+    try:
+        import resend
+        resend.api_key = settings.RESEND_API_KEY
+        html = f"""<!DOCTYPE html><html><body style="background:#0a0a0a;font-family:sans-serif;padding:40px 20px;">
+<div style="max-width:520px;margin:0 auto;background:#111;border:1px solid #222;border-radius:16px;padding:32px;">
+  <p style="color:#10b981;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;">OpsOracle AI — Action Required</p>
+  <h1 style="color:#fff;font-size:20px;margin:0 0 20px;">New bank transfer awaiting approval</h1>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;">
+    <tr><td style="color:#666;padding:6px 0;">Customer</td><td style="color:#fff;padding:6px 0;">{user_email}</td></tr>
+    <tr><td style="color:#666;padding:6px 0;">Plan</td><td style="color:#fff;padding:6px 0;">{plan_tier}</td></tr>
+    <tr><td style="color:#666;padding:6px 0;">Amount</td><td style="color:#fff;font-weight:700;padding:6px 0;">₹{amount_inr:,}</td></tr>
+    <tr><td style="color:#666;padding:6px 0;">Method</td><td style="color:#fff;padding:6px 0;">{method.upper()}</td></tr>
+    <tr><td style="color:#666;padding:6px 0;">UTR / Ref</td><td style="color:#10b981;font-family:monospace;padding:6px 0;">{utr}</td></tr>
+  </table>
+  <p style="margin:24px 0 0;font-size:13px;color:#666;">
+    Verify the transfer in your bank / UPI app, then approve or reject at:<br/>
+    <a href="{settings.APP_URL}/admin/payments" style="color:#10b981;">{settings.APP_URL}/admin/payments</a>
+  </p>
+</div></body></html>"""
+        resend.Emails.send({
+            "from": f"OpsOracle AI <{settings.DIGEST_FROM_EMAIL}>",
+            "to": [settings.ADMIN_EMAIL],
+            "subject": f"[Action Required] Bank transfer — {user_email} — ₹{amount_inr:,} — {plan_tier}",
+            "html": html,
+        })
+    except Exception as exc:
+        logger.error("Admin bank transfer notification failed: %s", exc)
+
+
+def notify_user_payment_approved(user_email: str, company_name: str, plan_tier: str, amount_inr: int) -> None:
+    """Email user when their bank transfer has been approved and plan is active."""
+    if not settings.RESEND_API_KEY:
+        return
+    try:
+        import resend
+        resend.api_key = settings.RESEND_API_KEY
+        html = f"""<!DOCTYPE html><html><body style="background:#0a0a0a;font-family:sans-serif;padding:40px 20px;">
+<div style="max-width:520px;margin:0 auto;background:#111;border:1px solid #222;border-radius:16px;padding:32px;">
+  <div style="text-align:center;margin-bottom:24px;">
+    <div style="width:56px;height:56px;background:#10b98120;border:1px solid #10b98140;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">✓</div>
+  </div>
+  <p style="color:#10b981;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;text-align:center;">OpsOracle AI</p>
+  <h1 style="color:#fff;font-size:20px;margin:0 0 12px;text-align:center;">Payment confirmed — you're on {plan_tier.replace("_", " ").title()}!</h1>
+  <p style="color:#aaa;font-size:14px;line-height:1.6;text-align:center;margin:0 0 24px;">
+    Hi {company_name}, your bank transfer of <strong style="color:#fff;">₹{amount_inr:,}</strong> has been verified.
+    Your <strong style="color:#10b981;">{plan_tier}</strong> plan is now active — all features are unlocked.
+  </p>
+  <div style="text-align:center;">
+    <a href="{settings.APP_URL}/dashboard" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;">
+      Go to Dashboard →
+    </a>
+  </div>
+  <p style="margin:24px 0 0;font-size:12px;color:#444;text-align:center;">
+    Questions? Reply to this email or contact service@nanoneuron.ai
+  </p>
+</div></body></html>"""
+        resend.Emails.send({
+            "from": f"OpsOracle AI <{settings.DIGEST_FROM_EMAIL}>",
+            "to": [user_email],
+            "subject": f"Payment confirmed — {plan_tier} plan is now active",
+            "html": html,
+        })
+    except Exception as exc:
+        logger.error("User payment approved notification failed: %s", exc)
+
+
 def send_all_trial_warnings(db: Session) -> dict:
     """Send trial expiry warnings to users with ≤3 days remaining — called from digest trigger."""
     from app.models.models import Subscription

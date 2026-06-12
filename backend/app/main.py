@@ -44,6 +44,9 @@ def _run_migrations() -> None:
         "ALTER TABLE ops_subscriptions ADD COLUMN IF NOT EXISTS gateway VARCHAR(20)",
         "ALTER TABLE ops_subscriptions ADD COLUMN IF NOT EXISTS gateway_order_id VARCHAR(100)",
         "ALTER TABLE ops_subscriptions ADD COLUMN IF NOT EXISTS gateway_payment_id VARCHAR(100)",
+        # v3.9.0 card payments — Razorpay dedicated columns (idempotent)
+        "ALTER TABLE ops_subscriptions ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(100)",
+        "ALTER TABLE ops_subscriptions ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(100)",
         # Fix 1: ByteDance telemetry — which engine produced this analysis
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS analysis_method VARCHAR(20) DEFAULT 'llm_groq'",
         # Fix 3: Alibaba data moat — historical baseline comparison
@@ -76,7 +79,7 @@ def _run_migrations() -> None:
 
 _run_migrations()
 
-app = FastAPI(title="OpsOracle AI API", version="3.8.0", redirect_slashes=False)
+app = FastAPI(title="OpsOracle AI API", version="3.9.0", redirect_slashes=False)
 
 origins = [
     "https://nanoneuron.ai",

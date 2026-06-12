@@ -159,6 +159,45 @@ class VerifyPaymentRequest(BaseModel):
     gateway: str = "cashfree"  # cashfree | stripe
 
 
+class RazorpayOrderResponse(BaseModel):
+    order_id: str
+    amount: int           # paise
+    currency: str = "INR"
+    key_id: str
+    plan_tier: str
+    plan_name: str
+    prefill_email: str
+    prefill_name: str
+
+
+class VerifyRazorpayRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+class BankTransferRequest(BaseModel):
+    plan_tier: str
+    utr_reference: str                    # UTR / transaction reference from bank / UPI app
+    transfer_method: str = "upi"          # upi | neft | rtgs | imps
+    notes: str = ""
+
+
+class ManualPaymentResponse(BaseModel):
+    id: UUID
+    plan_tier: str
+    amount_inr: int
+    utr_reference: str
+    transfer_method: str
+    notes: str | None
+    status: str
+    rejection_reason: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class PlanResponse(BaseModel):
     plan_tier: str
     status: str

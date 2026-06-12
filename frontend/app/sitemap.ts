@@ -19,5 +19,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/manufacturing-ai/oee-calculator`,      lastModified: now, changeFrequency: "yearly",  priority: 0.85 },
     { url: `${base}/logistics-ai/otif-calculator`,         lastModified: now, changeFrequency: "yearly",  priority: 0.85 },
     { url: `${base}/devops-ai/dora-metrics-calculator`,    lastModified: now, changeFrequency: "yearly",  priority: 0.85 },
+    // Sub-vertical and geo pages
+    { url: `${base}/warehouse-ai/ecommerce-fulfillment`,          lastModified: now, changeFrequency: "monthly", priority: 0.85 },
+    { url: `${base}/manufacturing-ai/electronics-manufacturing`,   lastModified: now, changeFrequency: "monthly", priority: 0.85 },
+    { url: `${base}/india`,                                        lastModified: now, changeFrequency: "monthly", priority: 0.9 },
   ];
 }

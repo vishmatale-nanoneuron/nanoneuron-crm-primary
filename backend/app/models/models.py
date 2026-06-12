@@ -94,6 +94,23 @@ class Subscription(Base):
     user = relationship("User", back_populates="subscriptions")
 
 
+class ManualPayment(Base):
+    """Direct bank transfer / UPI payments — approved manually by admin."""
+    __tablename__ = "ops_manual_payments"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("ops_users.id"), nullable=False)
+    plan_tier = Column(String(30), nullable=False)
+    amount_inr = Column(Integer, nullable=False)
+    utr_reference = Column(String(100), nullable=False)  # UTR / transaction ID from bank
+    transfer_method = Column(String(20), default="upi")  # upi | neft | rtgs | imps
+    notes = Column(Text, nullable=True)
+    status = Column(String(20), default="pending")       # pending | approved | rejected
+    rejection_reason = Column(Text, nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    user = relationship("User")
+
+
 class IndustryBenchmark(Base):
     """Data flywheel: aggregates anonymized risk scores per industry across all users."""
     __tablename__ = "ops_industry_benchmarks"
