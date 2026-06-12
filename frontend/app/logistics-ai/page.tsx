@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PainSolver } from "@/components/PainSolver";
+import { IndustryKPIShowcase, VerticalFooter } from "@/components/IndustryKPIShowcase";
 
 const LOGISTICS_PAINS = [
   {
@@ -176,6 +177,8 @@ export default function LogisticsAI() {
 
       <PainSolver pains={LOGISTICS_PAINS} industry="Logistics" />
 
+      <IndustryKPIShowcase industry="logistics" currentHref="/logistics-ai" />
+
       <section aria-label="How it works" className="px-6 py-20 border-t border-white/8">
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-12">
@@ -211,18 +214,7 @@ export default function LogisticsAI() {
       </section>
 
       </main>
-      <footer aria-label="Site footer" className="border-t border-white/8 px-6 py-10">
-        <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
-          <Link href="/" className="text-sm font-semibold">
-            <span className="text-emerald-400">Ops</span>Oracle AI
-          </Link>
-          <p className="text-sm text-white/30">© {new Date().getFullYear()} OpsOracle AI. All rights reserved.</p>
-          <div className="flex gap-6 text-sm text-white/40">
-            <Link href="/manufacturing-ai" className="hover:text-white transition-colors">Manufacturing AI</Link>
-            <Link href="/warehouse-ai" className="hover:text-white transition-colors">Warehouse AI</Link>
-          </div>
-        </div>
-      </footer>
+      <VerticalFooter currentHref="/logistics-ai" industryName="Logistics" />
     </div>
   );
 }
