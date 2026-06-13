@@ -555,6 +555,13 @@ DATA TO ANALYZE:
             elif not isinstance(val, str):
                 result[field] = json.dumps([])
 
+        # Ensure recommendations plain text is a string (LLM occasionally returns a list)
+        recs = result.get("recommendations")
+        if isinstance(recs, list):
+            result["recommendations"] = "\n".join(str(r) for r in recs)
+        elif not isinstance(recs, str):
+            result["recommendations"] = ""
+
         # Ensure recommendations_json is a valid JSON string
         rj = result.get("recommendations_json")
         if isinstance(rj, list):
