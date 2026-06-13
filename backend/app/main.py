@@ -72,6 +72,16 @@ def _run_migrations() -> None:
         # v4.1.0 grounding audit — AI self-review that only softens, never adds
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS cai_revised BOOLEAN DEFAULT FALSE",
         "ALTER TABLE ops_insights ADD COLUMN IF NOT EXISTS cai_critique_notes TEXT",
+        # v4.2.0 cross-vertical intelligence brief — AGI synthesis across all verticals
+        """CREATE TABLE IF NOT EXISTS ops_briefs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES ops_users(id) ON DELETE CASCADE,
+            brief_json TEXT NOT NULL,
+            vertical_count INTEGER DEFAULT 0,
+            insight_ids_json TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_ops_briefs_user_id ON ops_briefs(user_id)",
     ]
     try:
         with engine.connect() as conn:

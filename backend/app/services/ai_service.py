@@ -392,6 +392,61 @@ or
                 "bottleneck_summary": bottleneck_summary, "notes": "Audit skipped"}
 
 
+def generate_cross_vertical_brief(verticals: list) -> dict:
+    """Dario Amodei 'brilliant friend' principle: synthesize across ALL verticals.
+
+    Finds hidden causal chains and the single highest-leverage intervention that
+    a siloed per-vertical analysis misses. Requires ≥2 verticals.
+    """
+    if len(verticals) < 2:
+        return {"available": False}
+
+    client, model = _get_client()
+
+    verticals_text = "\n\n".join([
+        f"VERTICAL: {v['industry'].upper().replace('_', ' ')}\n"
+        f"Risk Score: {v['risk_score']}/100\n"
+        f"Bottleneck: {v.get('bottleneck_summary', 'N/A')}\n"
+        f"Summary: {v.get('executive_summary', 'N/A')[:300]}\n"
+        f"Top Recommendation: {v.get('top_recommendation', 'N/A')}"
+        for v in verticals
+    ])
+
+    prompt = f"""You are an elite cross-domain operations intelligence system analyzing {len(verticals)} operational verticals for the SAME company.
+
+VERTICAL ANALYSES:
+{verticals_text}
+
+Synthesize across ALL verticals to find what siloed analysis misses.
+
+Return ONLY valid JSON:
+{{
+  "cross_pattern": "The hidden causal connection linking 2+ verticals (1-2 sentences). Name the specific link — not generic advice.",
+  "leverage_point": "The single action that reduces risk across the most verticals simultaneously (1 sentence, specific).",
+  "priority_vertical": "The one vertical to fix FIRST — lowercase with underscores e.g. logistics",
+  "why_first": "Why this vertical is the highest-leverage starting point (1 sentence).",
+  "action_sequence": ["vertical_name: one-line reason", "..."],
+  "connected_findings": "The non-obvious insight that only emerges when seeing all verticals together (1-2 sentences)."
+}}"""
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=600,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content or "{}"
+        result = json.loads(raw)
+        result["available"] = True
+        result["vertical_count"] = len(verticals)
+        return result
+    except Exception as exc:
+        logger.error("Cross-vertical brief failed: %s", exc)
+        return {"available": False}
+
+
 def analyze_operations(extracted_text: str) -> dict:
     industry    = classify_industry(extracted_text)
     sub_vertical = classify_sub_vertical(industry, extracted_text)

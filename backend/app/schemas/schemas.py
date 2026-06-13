@@ -164,6 +164,19 @@ class ManualPaymentResponse(BaseModel):
         from_attributes = True
 
 
+class BriefResponse(BaseModel):
+    available: bool
+    cross_pattern: str | None = None
+    leverage_point: str | None = None
+    priority_vertical: str | None = None
+    why_first: str | None = None
+    action_sequence: list[str] | None = None
+    connected_findings: str | None = None
+    vertical_count: int | None = None
+    verticals_included: list[str] | None = None
+    generated_at: str | None = None
+
+
 class PlanResponse(BaseModel):
     plan_tier: str
     status: str

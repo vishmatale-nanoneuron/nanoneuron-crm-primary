@@ -8,14 +8,14 @@ from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.config import settings
-from app.models.models import Report, Insight, User, IndustryBenchmark, Subscription
+from app.models.models import Report, Insight, User, IndustryBenchmark, Subscription, OpsBrief
 from app.schemas.schemas import (
     ReportResponse, InsightResponse, ResolveRequest,
-    PublicDemoResponse, SharedReportResponse,
+    PublicDemoResponse, SharedReportResponse, BriefResponse,
 )
 from app.api.deps import get_current_user
 from app.services.file_parser import parse_uploaded_file
-from app.services.ai_service import analyze_operations, classify_sub_vertical, INDUSTRY_KPI_DEFINITIONS
+from app.services.ai_service import analyze_operations, classify_sub_vertical, INDUSTRY_KPI_DEFINITIONS, generate_cross_vertical_brief
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -517,6 +517,81 @@ async def upload_report(
         )
 
     return insight
+
+
+@router.get("/brief", response_model=BriefResponse)
+def get_cross_vertical_brief(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Cross-vertical intelligence brief — synthesizes hidden causal chains across all verticals."""
+    from datetime import timedelta
+    from sqlalchemy import text as sa_text
+
+    # Return cached brief if < 6 hours old
+    cutoff = datetime.utcnow() - timedelta(hours=6)
+    recent = (
+        db.query(OpsBrief)
+        .filter(OpsBrief.user_id == user.id, OpsBrief.created_at > cutoff)
+        .order_by(OpsBrief.created_at.desc())
+        .first()
+    )
+    if recent:
+        data = json.loads(recent.brief_json)
+        data["generated_at"] = recent.created_at.isoformat()
+        return BriefResponse(**data)
+
+    # Most recent insight per distinct vertical using PostgreSQL DISTINCT ON
+    rows = db.execute(sa_text("""
+        SELECT DISTINCT ON (i.industry_detected)
+            i.id, i.industry_detected, i.risk_score,
+            i.bottleneck_summary, i.executive_summary, i.recommendations_json
+        FROM ops_insights i
+        JOIN ops_reports r ON r.id = i.report_id
+        WHERE r.user_id = :user_id
+          AND i.industry_detected IS NOT NULL
+        ORDER BY i.industry_detected, i.created_at DESC
+    """), {"user_id": str(user.id)}).fetchall()
+
+    if len(rows) < 2:
+        return BriefResponse(available=False)
+
+    verticals = []
+    insight_ids = []
+    for row in rows:
+        top_rec = ""
+        if row.recommendations_json:
+            try:
+                recs = json.loads(row.recommendations_json)
+                if recs:
+                    top_rec = recs[0].get("action", "")
+            except Exception:
+                pass
+        verticals.append({
+            "industry": row.industry_detected,
+            "risk_score": row.risk_score,
+            "bottleneck_summary": row.bottleneck_summary or "",
+            "executive_summary": row.executive_summary or "",
+            "top_recommendation": top_rec,
+        })
+        insight_ids.append(str(row.id))
+
+    result = generate_cross_vertical_brief(verticals)
+    result["verticals_included"] = [v["industry"] for v in verticals]
+
+    if result.get("available"):
+        brief_record = OpsBrief(
+            user_id=user.id,
+            brief_json=json.dumps(result),
+            vertical_count=len(verticals),
+            insight_ids_json=json.dumps(insight_ids),
+        )
+        db.add(brief_record)
+        db.commit()
+        db.refresh(brief_record)
+        result["generated_at"] = brief_record.created_at.isoformat() if brief_record.created_at else None
+
+    return BriefResponse(**result)
 
 
 @router.get("", response_model=list[ReportResponse])

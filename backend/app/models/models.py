@@ -115,6 +115,18 @@ class ManualPayment(Base):
     user = relationship("User")
 
 
+class OpsBrief(Base):
+    """Cross-vertical AGI synthesis — finds hidden causal chains across all verticals."""
+    __tablename__ = "ops_briefs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("ops_users.id"), nullable=False)
+    brief_json = Column(Text, nullable=False)
+    vertical_count = Column(Integer, default=0)
+    insight_ids_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    user = relationship("User")
+
+
 class IndustryBenchmark(Base):
     """Data flywheel: aggregates anonymized risk scores per industry across all users."""
     __tablename__ = "ops_industry_benchmarks"
