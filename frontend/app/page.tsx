@@ -43,6 +43,7 @@ const industries = [
   { href: "/mlops-ai", label: "MLOps AI", pain: "Model accuracy dropped 15%. Team finds out from a customer complaint.", kpi: "Detect model drift before it costs you" },
   { href: "/retail-ai", label: "Retail AI", pain: "3 top-selling SKUs out of stock. Dead inventory worth ₹4L sitting unsold.", kpi: "Flag stockouts and dead stock before revenue bleeds" },
   { href: "/supply-chain-ai", label: "Supply Chain AI", pain: "Critical supplier at 38% on-time delivery. Production stopped waiting for parts.", kpi: "Identify supplier risk before it stops the line" },
+  { href: "/gstguard-ai", label: "GSTGuard AI", pain: "ASMT-10 arrived. Demand ₹8,40,000. Reply due in 7 days. Draft takes 3 hours.", kpi: "AI-drafted GST notice reply in 60 seconds" },
 ];
 
 export default function Home() {
@@ -62,6 +63,7 @@ export default function Home() {
             <Link href="/mlops-ai" className="hidden md:block text-sm text-white/60 hover:text-white transition-colors">MLOps</Link>
             <Link href="/retail-ai" className="hidden lg:block text-sm text-white/60 hover:text-white transition-colors">Retail</Link>
             <Link href="/supply-chain-ai" className="hidden lg:block text-sm text-white/60 hover:text-white transition-colors">Supply Chain</Link>
+            <Link href="/gstguard-ai" className="hidden lg:block text-sm text-amber-400/80 hover:text-amber-400 transition-colors">GSTGuard</Link>
             <Link href="/pricing" className="text-sm text-white/60 hover:text-white transition-colors">Pricing</Link>
             <Link href="/login" className="text-sm text-white/60 hover:text-white transition-colors">Login</Link>
             <Link href="/register" className="btn text-sm py-2 px-5">Try Free</Link>
@@ -89,6 +91,7 @@ export default function Home() {
               { label: "MLOPS", signal: "fraud-detector · accuracy 94% → 87% · data drift 0.34 · retraining overdue", color: "border-red-500/30 bg-red-500/5 text-red-300" },
               { label: "RETAIL", signal: "SKU-202 · stock = 0 · 28 units/week demand · ₹46,200 stockout loss this week", color: "border-red-500/30 bg-red-500/5 text-red-300" },
               { label: "SUPPLY CHAIN", signal: "ImportComp China · Sensor-F6 · stock=2 · lead time 45d · 38% OTD · CRITICAL", color: "border-red-500/30 bg-red-500/5 text-red-300" },
+              { label: "GST NOTICE", signal: "ASMT-10 · GSTIN 27ABCDE1234F1Z5 · Demand ₹8,40,000 · 4 issues · Reply due 7 days · Draft not started", color: "border-amber-500/30 bg-amber-500/5 text-amber-300" },
             ].map((s) => (
               <div key={s.label} className={`flex items-center gap-3 rounded-xl border ${s.color} px-4 py-3 font-mono text-sm`}>
                 <span className="text-xs text-white/30 shrink-0 w-24">{s.label}</span>
@@ -279,6 +282,7 @@ export default function Home() {
             <Link href="/mlops-ai" className="hover:text-white transition-colors">MLOps AI</Link>
             <Link href="/retail-ai" className="hover:text-white transition-colors">Retail AI</Link>
             <Link href="/supply-chain-ai" className="hover:text-white transition-colors">Supply Chain AI</Link>
+            <Link href="/gstguard-ai" className="hover:text-amber-400 transition-colors">GSTGuard AI</Link>
             <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-white transition-colors">Login</Link>
           </div>

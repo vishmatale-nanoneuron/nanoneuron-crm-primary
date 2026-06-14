@@ -383,6 +383,127 @@ def notify_user_payment_approved(user_email: str, company_name: str, plan_tier: 
         logger.error("User payment approved notification failed: %s", exc)
 
 
+def _high_risk_alert_html(
+    user_name: str,
+    risk_score: int,
+    bottleneck: str,
+    top_action: str,
+    industry: str,
+    report_url: str,
+    cost_impact: int,
+) -> str:
+    risk_color = "#ef4444"
+    cost_block = f"""<tr>
+        <td style="padding:0 40px 20px;">
+          <div style="background:#1a1a0a;border:1px solid #eab30840;border-radius:12px;padding:16px 20px;">
+            <p style="margin:0 0 4px;font-size:11px;color:#eab30899;letter-spacing:1px;text-transform:uppercase;">Estimated Cost at Risk</p>
+            <p style="margin:0;font-size:24px;font-weight:700;color:#eab308;">${cost_impact:,}</p>
+          </div>
+        </td>
+      </tr>""" if cost_impact > 0 else ""
+    action_block = f"""<tr>
+        <td style="padding:0 40px 20px;">
+          <div style="background:#0a1a0a;border:1px solid #10b98140;border-radius:12px;padding:20px;">
+            <p style="margin:0 0 8px;font-size:11px;color:#10b98199;letter-spacing:1px;text-transform:uppercase;">Recommended Action</p>
+            <p style="margin:0;font-size:14px;color:#ddd;line-height:1.6;">{top_action}</p>
+          </div>
+        </td>
+      </tr>""" if top_action else ""
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>High Risk Alert — OpsOracle AI</title>
+</head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;">
+  <tr><td align="center" style="padding:40px 20px;">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #222;border-radius:16px;overflow:hidden;">
+      <tr>
+        <td style="padding:32px 40px 24px;background:#1a0a0a;border-bottom:2px solid {risk_color}40;">
+          <p style="margin:0 0 4px;font-size:12px;color:{risk_color};letter-spacing:2px;text-transform:uppercase;">OpsOracle AI — High Risk Alert</p>
+          <h1 style="margin:0;font-size:22px;color:#fff;font-weight:700;">Critical risk detected in your {industry.replace("_", " ")} data</h1>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:28px 40px 16px;">
+          <p style="margin:0;font-size:14px;color:#aaa;">Hi {user_name},</p>
+          <p style="margin:10px 0 0;font-size:14px;color:#aaa;line-height:1.6;">
+            Your latest report came back with a <strong style="color:{risk_color};">risk score of {risk_score}%</strong> — above the 70% critical threshold. Here is what our AI found:
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px 20px;">
+          <div style="background:#1a0a0a;border:1px solid {risk_color}40;border-left:3px solid {risk_color};border-radius:12px;padding:20px;">
+            <p style="margin:0 0 8px;font-size:11px;color:{risk_color}99;letter-spacing:1px;text-transform:uppercase;">Critical Bottleneck</p>
+            <p style="margin:0;font-size:14px;color:#ddd;line-height:1.6;">{bottleneck or "See full report for details."}</p>
+          </div>
+        </td>
+      </tr>
+      {action_block}
+      {cost_block}
+      <tr>
+        <td style="padding:0 40px 32px;text-align:center;">
+          <a href="{report_url}" style="display:inline-block;background:#ef4444;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;">
+            View Full Analysis &amp; Actions &#8594;
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:20px 40px;border-top:1px solid #222;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#444;">
+            OpsOracle AI — Vertical AI for Industrial Operations<br/>
+            <a href="{settings.APP_URL}" style="color:#555;text-decoration:none;">nanoneuron.ai</a>
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
+
+
+def send_high_risk_alert(
+    user_email: str,
+    company_name: str,
+    risk_score: int,
+    bottleneck: str,
+    top_action: str,
+    industry: str,
+    report_id: str,
+    cost_impact: int,
+    app_url: str,
+) -> None:
+    """Immediate alert when upload analysis returns risk_score >= 70. Fire-and-forget."""
+    if not settings.RESEND_API_KEY:
+        return
+    try:
+        import resend
+        resend.api_key = settings.RESEND_API_KEY
+        user_name = company_name or user_email.split("@")[0]
+        html = _high_risk_alert_html(
+            user_name=user_name,
+            risk_score=risk_score,
+            bottleneck=bottleneck,
+            top_action=top_action,
+            industry=industry,
+            report_url=f"{app_url}/reports/{report_id}",
+            cost_impact=cost_impact,
+        )
+        resend.Emails.send({
+            "from": f"OpsOracle AI <{settings.DIGEST_FROM_EMAIL}>",
+            "to": [user_email],
+            "subject": f"[Alert] High risk detected ({risk_score}%) — action required",
+            "html": html,
+        })
+        logger.info("High risk alert sent to %s (risk=%d)", user_email, risk_score)
+    except Exception as exc:
+        logger.error("High risk alert failed for %s: %s", user_email, exc)
+
+
 def send_all_trial_warnings(db: Session) -> dict:
     """Send trial expiry warnings to users with ≤3 days remaining — called from digest trigger."""
     from app.models.models import Subscription
