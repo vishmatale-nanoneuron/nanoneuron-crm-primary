@@ -1,4 +1,5 @@
 """Monday Morning Email digest trigger — Kai-Fu Lee retention loop principle."""
+import hmac
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -18,7 +19,7 @@ def trigger_digest(secret: str, db: Session = Depends(get_db)):
     Requires DIGEST_SECRET env var to match the secret query param.
     """
     digest_secret = getattr(settings, "ADMIN_SECRET", "")
-    if not digest_secret or secret != digest_secret:
+    if not digest_secret or not hmac.compare_digest(secret.encode(), digest_secret.encode()):
         raise HTTPException(status_code=403, detail="Invalid secret")
     digest_result = send_all_digests(db)
     trial_result = send_all_trial_warnings(db)

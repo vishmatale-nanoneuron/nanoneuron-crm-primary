@@ -82,6 +82,10 @@ def _run_migrations() -> None:
             created_at TIMESTAMP DEFAULT NOW()
         )""",
         "CREATE INDEX IF NOT EXISTS idx_ops_briefs_user_id ON ops_briefs(user_id)",
+        # v5.0.0 composite indexes for hot query paths
+        "CREATE INDEX IF NOT EXISTS idx_ops_reports_user_created ON ops_reports(user_id, created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_ops_subs_user_status ON ops_subscriptions(user_id, status)",
+        "CREATE INDEX IF NOT EXISTS idx_ops_manual_payments_pending ON ops_manual_payments(status, created_at) WHERE status = 'pending'",
     ]
     try:
         with engine.connect() as conn:
@@ -94,7 +98,7 @@ def _run_migrations() -> None:
 
 _run_migrations()
 
-app = FastAPI(title="OpsOracle AI API", version="3.9.0", redirect_slashes=False)
+app = FastAPI(title="OpsOracle AI API", version="4.0.0", redirect_slashes=False)
 
 origins = [
     "https://nanoneuron.ai",
@@ -119,4 +123,4 @@ app.include_router(digest.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "product": "OpsOracle AI", "version": "3.9.0"}
+    return {"status": "ok", "product": "OpsOracle AI", "version": "4.0.0"}

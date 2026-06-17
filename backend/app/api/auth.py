@@ -13,10 +13,13 @@ TRIAL_DAYS = 14
 
 @router.post("/register", response_model=TokenResponse)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == payload.email).first():
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+    email = payload.email.lower().strip()
+    if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(
-        email=payload.email,
+        email=email,
         password_hash=hash_password(payload.password),
         company_name=payload.company_name,
         plan_tier="pro",
@@ -37,7 +40,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+    user = db.query(User).filter(User.email == payload.email.lower().strip()).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return TokenResponse(access_token=create_access_token(str(user.id)))

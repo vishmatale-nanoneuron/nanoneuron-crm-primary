@@ -2,12 +2,25 @@ import io
 import pandas as pd
 from pypdf import PdfReader
 
+
+def _read_csv(content: bytes) -> pd.DataFrame:
+    """Try common encodings — Indian Excel exports are often cp1252/latin-1, not UTF-8."""
+    for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            return pd.read_csv(io.BytesIO(content), encoding=enc)
+        except UnicodeDecodeError:
+            continue
+    raise ValueError("Could not decode CSV — open in Excel, Save As → CSV UTF-8, and re-upload.")
+
+
 def parse_uploaded_file(filename: str, content: bytes) -> tuple[str, int]:
     lower = filename.lower()
     if lower.endswith(".csv"):
         try:
-            df = pd.read_csv(io.BytesIO(content))
+            df = _read_csv(content)
             return df.head(200).to_csv(index=False), len(df)
+        except ValueError:
+            raise
         except Exception as exc:
             raise ValueError(f"Could not parse CSV: {exc}")
     if lower.endswith(".xlsx") or lower.endswith(".xls"):

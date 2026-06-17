@@ -292,11 +292,19 @@ def _fallback_analysis(text: str, industry: str) -> dict:
     }
 
 
+_CLIENT_CACHE: tuple | None = None
+
+
 def _get_client():
+    global _CLIENT_CACHE
+    if _CLIENT_CACHE is not None:
+        return _CLIENT_CACHE
     if settings.GROQ_API_KEY:
-        return OpenAI(api_key=settings.GROQ_API_KEY, base_url="https://api.groq.com/openai/v1"), "llama-3.3-70b-versatile", "llm_groq"
+        _CLIENT_CACHE = (OpenAI(api_key=settings.GROQ_API_KEY, base_url="https://api.groq.com/openai/v1"), "llama-3.3-70b-versatile", "llm_groq")
+        return _CLIENT_CACHE
     if settings.OPENAI_API_KEY:
-        return OpenAI(api_key=settings.OPENAI_API_KEY), "gpt-4o-mini", "llm_openai"
+        _CLIENT_CACHE = (OpenAI(api_key=settings.OPENAI_API_KEY), "gpt-4o-mini", "llm_openai")
+        return _CLIENT_CACHE
     return None, None, None
 
 

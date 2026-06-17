@@ -14,6 +14,12 @@ from app.api.deps import get_current_user
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/payments", tags=["payments"])
 
+
+def _check_admin_secret(provided: str) -> None:
+    expected = getattr(settings, "ADMIN_SECRET", "")
+    if not expected or not hmac.compare_digest(provided.encode(), expected.encode()):
+        raise HTTPException(status_code=403, detail="Invalid admin secret")
+
 PLANS = {
     "pro": {
         "price_inr": 999,
@@ -201,23 +207,21 @@ def my_bank_transfers(db: Session = Depends(get_db), user: User = Depends(get_cu
 @router.get("/bank-transfer/pending")
 def list_pending_bank_transfers(secret: str, db: Session = Depends(get_db)):
     """Admin: list all pending bank transfer submissions."""
-    admin_secret = getattr(settings, "ADMIN_SECRET", "")
-    if not admin_secret or secret != admin_secret:
-        raise HTTPException(status_code=403, detail="Invalid admin secret")
+    _check_admin_secret(secret)
     from app.models.models import ManualPayment
+    from sqlalchemy.orm import joinedload
     rows = (
         db.query(ManualPayment)
+        .options(joinedload(ManualPayment.user))
         .filter(ManualPayment.status == "pending")
         .order_by(ManualPayment.created_at.asc())
         .all()
     )
-    result = []
-    for r in rows:
-        u = db.query(User).filter(User.id == r.user_id).first()
-        result.append({
+    return [
+        {
             "id": str(r.id),
-            "user_email": u.email if u else "?",
-            "company_name": (u.company_name if u else "") or "",
+            "user_email": r.user.email if r.user else "?",
+            "company_name": (r.user.company_name if r.user else "") or "",
             "plan_tier": r.plan_tier,
             "amount_inr": r.amount_inr,
             "utr_reference": r.utr_reference,
@@ -225,16 +229,15 @@ def list_pending_bank_transfers(secret: str, db: Session = Depends(get_db)):
             "notes": r.notes or "",
             "status": r.status,
             "created_at": r.created_at.isoformat(),
-        })
-    return result
+        }
+        for r in rows
+    ]
 
 
 @router.post("/bank-transfer/{payment_id}/approve")
 def approve_bank_transfer(payment_id: str, secret: str, db: Session = Depends(get_db)):
     """Admin: approve a bank transfer and activate the user's plan."""
-    admin_secret = getattr(settings, "ADMIN_SECRET", "")
-    if not admin_secret or secret != admin_secret:
-        raise HTTPException(status_code=403, detail="Invalid admin secret")
+    _check_admin_secret(secret)
     from app.models.models import ManualPayment
     mp = db.query(ManualPayment).filter(ManualPayment.id == payment_id).first()
     if not mp:
@@ -275,9 +278,7 @@ def reject_bank_transfer(
     db: Session = Depends(get_db),
 ):
     """Admin: reject a bank transfer with a reason."""
-    admin_secret = getattr(settings, "ADMIN_SECRET", "")
-    if not admin_secret or secret != admin_secret:
-        raise HTTPException(status_code=403, detail="Invalid admin secret")
+    _check_admin_secret(secret)
     from app.models.models import ManualPayment
     mp = db.query(ManualPayment).filter(ManualPayment.id == payment_id).first()
     if not mp:

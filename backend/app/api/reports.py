@@ -661,8 +661,9 @@ def mark_expert_reviewed(
     db: Session = Depends(get_db),
 ):
     """Enterprise: admin marks insight as expert-reviewed (requires ADMIN_SECRET)."""
+    import hmac as _hmac
     admin_secret = getattr(settings, "ADMIN_SECRET", "")
-    if not admin_secret or secret != admin_secret:
+    if not admin_secret or not _hmac.compare_digest(secret.encode(), admin_secret.encode()):
         raise HTTPException(status_code=403, detail="Invalid secret")
     insight = db.query(Insight).filter(Insight.id == insight_id, Insight.report_id == report_id).first()
     if not insight:
