@@ -399,24 +399,25 @@ export default function Pricing() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {/* Primary: Razorpay — instant UPI / card / net banking */}
+                      {/* Primary: UPI direct payment */}
                       <button
-                        onClick={() => handleRazorpayPay(planTier)}
-                        disabled={rzpLoading}
-                        className={`w-full rounded-xl px-6 py-3 text-sm font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+                        onClick={() => openBankSection(planTier)}
+                        className={`w-full rounded-xl px-6 py-3 text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                           plan.highlight
                             ? "bg-emerald-500 hover:bg-emerald-400 text-white"
                             : "bg-white/10 hover:bg-white/15 text-white border border-white/20"
                         }`}
                       >
-                        {rzpLoading ? "Opening checkout…" : "Pay Now — UPI / Card / Net Banking"}
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        Pay via UPI
                       </button>
-                      {/* Secondary: manual bank transfer */}
+                      {/* Secondary: Razorpay card / net banking */}
                       <button
-                        onClick={() => openBankSection(planTier)}
-                        className="w-full rounded-xl border border-white/10 px-6 py-2 text-xs font-medium text-white/35 hover:text-white/60 hover:border-white/20 transition-colors"
+                        onClick={() => handleRazorpayPay(planTier)}
+                        disabled={rzpLoading}
+                        className="w-full rounded-xl border border-white/10 px-6 py-2 text-xs font-medium text-white/35 hover:text-white/60 hover:border-white/20 transition-colors disabled:opacity-40"
                       >
-                        Bank transfer (2–4 hrs, no gateway fee)
+                        {rzpLoading ? "Opening checkout…" : "Card / Net Banking"}
                       </button>
                     </div>
                   )}
@@ -425,13 +426,13 @@ export default function Pricing() {
             })}
           </div>
 
-          {/* ── Bank / UPI manual payment section ── */}
+          {/* ── UPI Payment section ── */}
           {showBankSection && (
-            <div className="max-w-xl mx-auto mb-16 rounded-2xl border border-white/15 bg-white/3 p-8">
+            <div className="max-w-xl mx-auto mb-16 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-8">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-bold text-white/80">Bank Transfer</h3>
-                  <p className="text-sm text-white/40 mt-0.5">0% gateway fee · Activates within 2–4 hrs on weekdays</p>
+                  <h3 className="text-lg font-bold text-white">Pay via UPI</h3>
+                  <p className="text-sm text-white/40 mt-0.5">0% fee · Scan &amp; pay instantly · Activate in 2–4 hrs</p>
                 </div>
                 <button onClick={() => setShowBankSection(false)} className="text-white/30 hover:text-white/60 text-xl leading-none">✕</button>
               </div>
@@ -444,58 +445,93 @@ export default function Pricing() {
                     Plan: <span className="text-white font-semibold">{bankPlanLabel}</span>
                   </p>
 
-                  {/* Step 1 */}
-                  <p className="text-xs uppercase tracking-widest text-white/30 mb-3">Step 1 — Send payment to</p>
-                  <div className="space-y-3 mb-7">
-                    {bankDetails.upi_id && (
-                      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                        <div>
-                          <p className="text-xs text-white/40 mb-0.5">UPI ID</p>
-                          <p className="font-mono text-sm text-white">{bankDetails.upi_id}</p>
-                        </div>
-                        <button onClick={() => copy(bankDetails.upi_id!, "upi")} className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-lg px-3 py-1.5 transition-colors">
-                          {copied === "upi" ? "Copied!" : "Copy"}
-                        </button>
+                  {/* Step 1 — UPI QR + ID */}
+                  <p className="text-xs uppercase tracking-widest text-white/30 mb-4">Step 1 — Scan QR or copy UPI ID</p>
+
+                  {bankDetails.upi_id && (
+                    <div className="flex flex-col sm:flex-row items-center gap-6 mb-7 rounded-2xl border border-white/10 bg-white/5 p-5">
+                      {/* QR Code */}
+                      <div className="flex-shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`upi://pay?pa=${bankDetails.upi_id}&pn=OpsOracle+AI&am=${BANK_AMOUNTS[bankPlan] || ""}&cu=INR&tn=${encodeURIComponent(bankPlanLabel)}`)}&bgcolor=0a0a0a&color=10b981&qzone=2`}
+                          alt="UPI QR Code"
+                          width={150}
+                          height={150}
+                          className="rounded-xl border border-white/10"
+                        />
+                        <p className="text-xs text-white/30 text-center mt-2">Scan with any UPI app</p>
                       </div>
-                    )}
-                    {bankDetails.account_number && (
-                      <>
-                        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                          <div>
-                            <p className="text-xs text-white/40 mb-0.5">Account Name</p>
-                            <p className="font-mono text-sm text-white">{bankDetails.account_name}</p>
-                          </div>
-                          <button onClick={() => copy(bankDetails.account_name!, "name")} className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-lg px-3 py-1.5 transition-colors">
-                            {copied === "name" ? "Copied!" : "Copy"}
-                          </button>
-                        </div>
-                        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                          <div>
-                            <p className="text-xs text-white/40 mb-0.5">Account Number</p>
-                            <p className="font-mono text-sm text-white">{bankDetails.account_number}</p>
-                          </div>
-                          <button onClick={() => copy(bankDetails.account_number!, "acc")} className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-lg px-3 py-1.5 transition-colors">
-                            {copied === "acc" ? "Copied!" : "Copy"}
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                            <div>
-                              <p className="text-xs text-white/40 mb-0.5">IFSC</p>
-                              <p className="font-mono text-sm text-white">{bankDetails.ifsc}</p>
-                            </div>
-                            <button onClick={() => copy(bankDetails.ifsc!, "ifsc")} className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-lg px-3 py-1.5 transition-colors">
-                              {copied === "ifsc" ? "Copied!" : "Copy"}
+                      {/* UPI ID + deep link */}
+                      <div className="flex-1 w-full space-y-3">
+                        <div>
+                          <p className="text-xs text-white/40 mb-1">UPI ID</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-mono text-base text-emerald-400 font-semibold flex-1">{bankDetails.upi_id}</p>
+                            <button onClick={() => copy(bankDetails.upi_id!, "upi")} className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-lg px-3 py-1.5 transition-colors whitespace-nowrap">
+                              {copied === "upi" ? "✓ Copied!" : "Copy"}
                             </button>
                           </div>
-                          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                            <p className="text-xs text-white/40 mb-0.5">Bank</p>
-                            <p className="text-sm text-white">{bankDetails.bank_name}</p>
-                          </div>
                         </div>
-                      </>
-                    )}
-                  </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: "GPay", scheme: "tez://upi/pay" },
+                            { label: "PhonePe", scheme: "phonepe://pay" },
+                            { label: "Paytm", scheme: "paytmmp://pay" },
+                            { label: "BHIM", scheme: "upi://pay" },
+                          ].map(({ label, scheme }) => (
+                            <a
+                              key={label}
+                              href={`${scheme}?pa=${bankDetails.upi_id}&pn=OpsOracle+AI&am=${BANK_AMOUNTS[bankPlan] || ""}&cu=INR&tn=${encodeURIComponent(bankPlanLabel)}`}
+                              className="text-center rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 text-xs text-white/60 hover:text-white transition-colors"
+                            >
+                              {label}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bank account details (collapsed by default) */}
+                  {bankDetails.account_number && (
+                    <div className="space-y-3 mb-7">
+                      <p className="text-xs uppercase tracking-widest text-white/20 mb-2">Or transfer to bank account</p>
+                      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                        <div>
+                          <p className="text-xs text-white/40 mb-0.5">Account Name</p>
+                          <p className="font-mono text-sm text-white">{bankDetails.account_name}</p>
+                        </div>
+                        <button onClick={() => copy(bankDetails.account_name!, "name")} className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-lg px-3 py-1.5 transition-colors">
+                          {copied === "name" ? "✓ Copied!" : "Copy"}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                        <div>
+                          <p className="text-xs text-white/40 mb-0.5">Account Number</p>
+                          <p className="font-mono text-sm text-white">{bankDetails.account_number}</p>
+                        </div>
+                        <button onClick={() => copy(bankDetails.account_number!, "acc")} className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-lg px-3 py-1.5 transition-colors">
+                          {copied === "acc" ? "✓ Copied!" : "Copy"}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                          <div>
+                            <p className="text-xs text-white/40 mb-0.5">IFSC</p>
+                            <p className="font-mono text-sm text-white">{bankDetails.ifsc}</p>
+                          </div>
+                          <button onClick={() => copy(bankDetails.ifsc!, "ifsc")} className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 rounded-lg px-3 py-1.5 transition-colors">
+                            {copied === "ifsc" ? "✓ Copied!" : "Copy"}
+                          </button>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                          <p className="text-xs text-white/40 mb-0.5">Bank</p>
+                          <p className="text-sm text-white">{bankDetails.bank_name}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Step 2 */}
                   <p className="text-xs uppercase tracking-widest text-white/30 mb-3">Step 2 — Submit your UTR / Transaction ID</p>
