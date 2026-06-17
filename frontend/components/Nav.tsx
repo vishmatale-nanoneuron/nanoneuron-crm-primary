@@ -26,6 +26,7 @@ export default function Nav() {
               <li><Link href="/dashboard" className="hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 rounded">Dashboard</Link></li>
               <li><Link href="/upload" className="hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 rounded">Upload</Link></li>
               <li><Link href="/reports" className="hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 rounded">Reports</Link></li>
+              <li><Link href="/gst" className="hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 rounded">GSTGuard</Link></li>
               <li><Link href="/pricing" className="hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 rounded">Pricing</Link></li>
               <li><button onClick={logout} className="text-white/50 hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 rounded">Logout</button></li>
             </>

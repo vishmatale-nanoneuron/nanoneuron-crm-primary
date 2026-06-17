@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Nav from "@/components/Nav";
@@ -12,6 +12,18 @@ type Insight = InsightData;
 
 type Usage = { plan_tier: string; used: number; limit: number | null; unlimited: boolean; remaining: number | null };
 
+type AnalysisStage = "uploading" | "parsing" | "analyzing" | "auditing" | "done" | "failed";
+
+const STAGE_LABELS: Record<AnalysisStage, string> = {
+  uploading: "Uploading file...",
+  parsing: "Parsing your data...",
+  analyzing: "Claude analyzing operations...",
+  auditing: "Grounding audit in progress...",
+  done: "Analysis complete!",
+  failed: "Analysis failed",
+};
+
+const STAGE_ORDER: AnalysisStage[] = ["uploading", "parsing", "analyzing", "auditing", "done"];
 
 const DEMO_INDUSTRIES = [
   { value: "logistics", label: "Logistics & Shipments" },
@@ -27,11 +39,13 @@ export default function Upload() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [insight, setInsight] = useState<Insight | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState<AnalysisStage | null>(null);
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoIndustry, setDemoIndustry] = useState("logistics");
   const [error, setError] = useState("");
   const [usage, setUsage] = useState<Usage | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!getToken()) { router.push("/login"); return; }
@@ -39,7 +53,46 @@ export default function Upload() {
       .then(r => r.json())
       .then(setUsage)
       .catch(() => {});
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (stageTimerRef.current) clearTimeout(stageTimerRef.current);
+    };
   }, [router]);
+
+  function stopPolling() {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  }
+
+  function advanceStage(reportId: string, startedAt: number) {
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < 3000) setStage("parsing");
+    else if (elapsed < 18000) setStage("analyzing");
+    else setStage("auditing");
+  }
+
+  async function pollStatus(reportId: string, startedAt: number) {
+    try {
+      const res = await fetch(`${API}/reports/status/${reportId}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      advanceStage(reportId, startedAt);
+      if (data.status === "done" && data.insight) {
+        stopPolling();
+        setStage("done");
+        setInsight(data.insight);
+        fetch(`${API}/reports/usage`, { headers: { Authorization: `Bearer ${getToken()}` } })
+          .then(r => r.json()).then(setUsage).catch(() => {});
+      } else if (data.status === "failed") {
+        stopPolling();
+        setStage("failed");
+        setError(data.error || "Analysis failed. Please try again.");
+      }
+    } catch {
+      // network hiccup — keep polling
+    }
+  }
 
   async function runDemo() {
     setDemoLoading(true);
@@ -56,34 +109,60 @@ export default function Upload() {
   }
 
   const limitReached = usage !== null && !usage.unlimited && (usage.remaining ?? 1) <= 0;
+  const isLoading = stage !== null && stage !== "done" && stage !== "failed";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!file || limitReached) return;
-    setLoading(true);
+    stopPolling();
+    setStage("uploading");
     setError("");
     setInsight(null);
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch(`${API}/reports/upload`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${getToken()}` },
-      body: fd,
-    });
-    setLoading(false);
+    let res: Response;
+    try {
+      res = await fetch(`${API}/reports/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: fd,
+      });
+    } catch {
+      setStage("failed");
+      setError("Upload failed — check your connection.");
+      return;
+    }
     if (res.status === 429) {
       const d = await res.json();
+      setStage(null);
       setError(d.detail || "Daily limit reached.");
       setUsage(prev => prev ? { ...prev, remaining: 0 } : prev);
       return;
     }
-    if (!res.ok) { setError("Upload failed. Please try again."); return; }
+    if (!res.ok) {
+      setStage("failed");
+      setError("Upload failed. Please try again.");
+      return;
+    }
     const data = await res.json();
-    setInsight(data);
-    // Refresh usage counter after successful upload
-    fetch(`${API}/reports/usage`, { headers: { Authorization: `Bearer ${getToken()}` } })
-      .then(r => r.json()).then(setUsage).catch(() => {});
+
+    // Legacy sync response (has risk_score directly)
+    if (data.risk_score !== undefined) {
+      setStage("done");
+      setInsight(data);
+      fetch(`${API}/reports/usage`, { headers: { Authorization: `Bearer ${getToken()}` } })
+        .then(r => r.json()).then(setUsage).catch(() => {});
+      return;
+    }
+
+    // Async response: {report_id, status: "processing"}
+    const reportId: string = data.report_id;
+    const startedAt = Date.now();
+    setStage("parsing");
+    pollRef.current = setInterval(() => pollStatus(reportId, startedAt), 2000);
   }
+
+  const stageIndex = stage ? STAGE_ORDER.indexOf(stage) : -1;
 
   return (
     <>
@@ -94,7 +173,6 @@ export default function Upload() {
             <h1 className="text-4xl font-bold">Upload Operations Report</h1>
             <p className="mt-1 text-white/50">CSV, Excel, or PDF — AI analyzes it instantly</p>
           </div>
-          {/* Daily usage counter */}
           {usage && !usage.unlimited && (
             <div className={`rounded-xl border px-4 py-3 text-right ${
               limitReached
@@ -119,7 +197,6 @@ export default function Upload() {
           )}
         </div>
 
-        {/* Limit reached banner */}
         {limitReached && (
           <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/8 px-5 py-4">
             <p className="font-semibold text-red-400 mb-1">Daily limit reached</p>
@@ -133,7 +210,7 @@ export default function Upload() {
           </div>
         )}
 
-        {/* Try with sample data */}
+        {/* Demo */}
         <div className="card max-w-xl mb-4 border-emerald-500/20 bg-emerald-500/5">
           <p className="text-xs uppercase tracking-wider text-emerald-400/70 mb-3">No file? Try live sample data</p>
           <div className="flex gap-3 flex-wrap">
@@ -212,16 +289,16 @@ export default function Upload() {
               accept=".csv,.xlsx,.xls,.pdf"
               onChange={e => setFile(e.target.files?.[0] || null)}
               required
-              disabled={limitReached}
+              disabled={limitReached || isLoading}
               aria-describedby="file-hint"
             />
             <p id="file-hint" className="text-xs text-white/30">CSV, Excel (.xlsx) or PDF — any format, no template needed</p>
           </div>
           <button
-            disabled={loading || limitReached}
+            disabled={isLoading || limitReached}
             className="btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Analyzing with AI..." : limitReached ? "Daily limit reached — upgrade to continue" : "Analyze Report"}
+            {isLoading ? STAGE_LABELS[stage!] : limitReached ? "Daily limit reached — upgrade to continue" : "Analyze Report"}
           </button>
           {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
           {!limitReached && usage && !usage.unlimited && (usage.remaining ?? 3) <= 1 && (
@@ -231,6 +308,42 @@ export default function Upload() {
             </p>
           )}
         </form>
+
+        {/* Live progress tracker */}
+        {stage && stage !== "done" && stage !== "failed" && (
+          <div className="card max-w-xl mt-4 border-blue-500/20 bg-blue-500/5" aria-live="polite" aria-label="Analysis progress">
+            <p className="text-xs uppercase tracking-wider text-blue-400/70 mb-3">Analysis Progress</p>
+            <div className="space-y-2">
+              {STAGE_ORDER.filter(s => s !== "done").map((s, i) => {
+                const idx = STAGE_ORDER.indexOf(s);
+                const isDone = stageIndex > idx;
+                const isCurrent = stageIndex === idx;
+                return (
+                  <div key={s} className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      isDone ? "bg-emerald-500 text-white" :
+                      isCurrent ? "bg-blue-500 text-white animate-pulse" :
+                      "bg-white/10 text-white/30"
+                    }`}>
+                      {isDone ? "✓" : i + 1}
+                    </div>
+                    <span className={`text-sm ${isCurrent ? "text-white font-medium" : isDone ? "text-emerald-400" : "text-white/30"}`}>
+                      {STAGE_LABELS[s]}
+                    </span>
+                    {isCurrent && (
+                      <span className="ml-auto flex gap-1">
+                        {[0,1,2].map(d => (
+                          <span key={d} className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: `${d * 150}ms` }} />
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-white/30 mt-3">Claude is reviewing your operations data — this takes 20–60 seconds</p>
+          </div>
+        )}
 
         {insight && (
           <section aria-label="AI analysis results" aria-live="polite" className="mt-10">

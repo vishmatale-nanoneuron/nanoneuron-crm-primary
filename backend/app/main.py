@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from app.core.database import Base, engine
 from app.models import models
-from app.api import auth, reports, insights, payments, digest
+from app.api import auth, reports, insights, payments, digest, admin, gst
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,57 @@ def _run_migrations() -> None:
         "CREATE INDEX IF NOT EXISTS idx_ops_reports_user_created ON ops_reports(user_id, created_at DESC)",
         "CREATE INDEX IF NOT EXISTS idx_ops_subs_user_status ON ops_subscriptions(user_id, status)",
         "CREATE INDEX IF NOT EXISTS idx_ops_manual_payments_pending ON ops_manual_payments(status, created_at) WHERE status = 'pending'",
+        # v5.1.0 async analysis — status tracking
+        "ALTER TABLE ops_reports ADD COLUMN IF NOT EXISTS analysis_status VARCHAR(20) DEFAULT 'done'",
+        "ALTER TABLE ops_reports ADD COLUMN IF NOT EXISTS analysis_error TEXT",
+        # v5.1.0 manual payments — rejection reason column
+        "ALTER TABLE ops_manual_payments ADD COLUMN IF NOT EXISTS rejection_reason TEXT",
+        # v6.0.0 GSTGuard module — CA firm GST notice management
+        """CREATE TABLE IF NOT EXISTS gst_notices (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES ops_users(id) ON DELETE CASCADE,
+            file_name VARCHAR(255) NOT NULL,
+            raw_text TEXT,
+            notice_type VARCHAR(30),
+            gstin VARCHAR(20),
+            taxpayer_name VARCHAR(255),
+            notice_number VARCHAR(100),
+            notice_date VARCHAR(20),
+            deadline VARCHAR(20),
+            demand_amount_inr BIGINT,
+            period VARCHAR(100),
+            issues_json TEXT,
+            issuing_authority VARCHAR(255),
+            extraction_confidence VARCHAR(10) DEFAULT 'low',
+            field_sources_json TEXT,
+            ca_orientation_json TEXT,
+            status VARCHAR(20) DEFAULT 'draft',
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS gst_drafts (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            notice_id UUID NOT NULL REFERENCES gst_notices(id) ON DELETE CASCADE,
+            draft_text TEXT NOT NULL,
+            version INTEGER DEFAULT 1,
+            cai_critique_notes TEXT,
+            cai_revised BOOLEAN DEFAULT FALSE,
+            draft_figures_json TEXT,
+            accepted BOOLEAN DEFAULT FALSE,
+            accepted_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS gst_corpus (
+            id SERIAL PRIMARY KEY,
+            notice_type VARCHAR(30),
+            issue_count INTEGER DEFAULT 0,
+            cai_passed BOOLEAN DEFAULT TRUE,
+            cai_revised BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_gst_notices_user_id ON gst_notices(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_gst_notices_status ON gst_notices(status)",
+        "CREATE INDEX IF NOT EXISTS idx_gst_notices_deadline ON gst_notices(deadline) WHERE deadline IS NOT NULL",
+        "CREATE INDEX IF NOT EXISTS idx_gst_drafts_notice_id ON gst_drafts(notice_id)",
     ]
     try:
         with engine.connect() as conn:
@@ -132,11 +183,13 @@ app.include_router(reports.router)
 app.include_router(insights.router)
 app.include_router(payments.router)
 app.include_router(digest.router)
+app.include_router(admin.router)
+app.include_router(gst.router)
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "product": "OpsOracle AI", "version": "5.3.0"}
+    return {"status": "ok", "product": "OpsOracle AI + GSTGuard", "version": "6.0.0"}
 
 
 @app.get("/health/ready")

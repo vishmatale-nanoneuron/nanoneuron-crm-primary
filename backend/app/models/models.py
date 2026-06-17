@@ -32,6 +32,8 @@ class Report(Base):
     rows_count = Column(Integer, default=0)
     industry = Column(String(50))
     share_token = Column(String(20), nullable=True, unique=True)
+    analysis_status = Column(String(20), default="done", server_default="done")  # queued|processing|done|failed
+    analysis_error = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     user = relationship("User", back_populates="reports")
     insights = relationship("Insight", back_populates="report", cascade="all, delete")
@@ -138,3 +140,58 @@ class IndustryBenchmark(Base):
     report_count = Column(Integer, default=0)
     kpi_sums_json = Column(Text, nullable=True)  # JSON: {kpi_key: {sum: float, count: int}}
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ── GSTGuard module ──────────────────────────────────────────────────────────
+
+class GSTNotice(Base):
+    """GST notice uploaded by a CA firm user."""
+    __tablename__ = "gst_notices"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("ops_users.id"), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    raw_text = Column(Text)
+    notice_type = Column(String(30))          # ASMT-10|DRC-01|DRC-01A|DRC-07|GSTR-3A|ADT-01|GSTR_mismatch|DRC-10
+    gstin = Column(String(20))
+    taxpayer_name = Column(String(255))
+    notice_number = Column(String(100))
+    notice_date = Column(String(20))          # ISO date string
+    deadline = Column(String(20))             # ISO date string — ONLY if explicitly in notice
+    demand_amount_inr = Column(BigInteger)
+    period = Column(String(100))
+    issues_json = Column(Text)                # JSON list of issue strings
+    issuing_authority = Column(String(255))
+    extraction_confidence = Column(String(10), default="low")
+    field_sources_json = Column(Text)         # JSON: {field: found|inferred|absent}
+    ca_orientation_json = Column(Text)        # JSON: {plain_summary, key_documents, ca_notes}
+    status = Column(String(20), default="draft")  # draft | reviewed | filed
+    created_at = Column(DateTime, server_default=func.now())
+    user = relationship("User")
+    drafts = relationship("GSTDraft", back_populates="notice", cascade="all, delete")
+
+
+class GSTDraft(Base):
+    """AI-generated draft reply to a GST notice, with CAI critique loop applied."""
+    __tablename__ = "gst_drafts"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    notice_id = Column(UUID(as_uuid=True), ForeignKey("gst_notices.id"), nullable=False)
+    draft_text = Column(Text, nullable=False)
+    version = Column(Integer, default=1)
+    cai_critique_notes = Column(Text)
+    cai_revised = Column(Boolean, default=False)
+    draft_figures_json = Column(Text)         # JSON: [{figure, type, status, note}]
+    accepted = Column(Boolean, default=False)
+    accepted_at = Column(DateTime)
+    created_at = Column(DateTime, server_default=func.now())
+    notice = relationship("GSTNotice", back_populates="drafts")
+
+
+class GSTCorpus(Base):
+    """Anonymized patterns flywheel — no PII, used to improve extraction quality."""
+    __tablename__ = "gst_corpus"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    notice_type = Column(String(30))
+    issue_count = Column(Integer, default=0)
+    cai_passed = Column(Boolean, default=True)
+    cai_revised = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
