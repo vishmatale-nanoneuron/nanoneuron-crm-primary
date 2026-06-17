@@ -204,16 +204,18 @@ def _expire_trial_if_needed(db: Session, user: User) -> None:
 
 
 def _check_burst_limit(db: Session, user_id) -> None:
-    """Block more than 2 uploads in 60 seconds — prevents runaway jobs and quota exhaustion."""
-    cutoff = datetime.utcnow() - timedelta(seconds=60)
+    """Block more than 2 real uploads in 5 minutes — prevents runaway jobs and quota exhaustion.
+    Window is 300s because AI analysis takes ~90s per upload; 60s window cleared between sequential uploads."""
+    cutoff = datetime.utcnow() - timedelta(seconds=300)
     recent = db.query(Report).filter(
         Report.user_id == user_id,
         Report.created_at > cutoff,
+        ~Report.file_name.like("demo_%"),
     ).count()
     if recent >= 2:
         raise HTTPException(
             status_code=429,
-            detail="Rate limit: maximum 2 uploads per minute. Please wait a moment before trying again.",
+            detail="Rate limit: maximum 2 uploads per 5 minutes. Please wait a moment before trying again.",
         )
 
 
@@ -444,6 +446,10 @@ async def upload_report(
     user: User = Depends(get_current_user),
 ):
     _check_daily_limit(user, db)
+    lower_fn = (file.filename or "").lower()
+    if not (lower_fn.endswith(".csv") or lower_fn.endswith(".xlsx")
+            or lower_fn.endswith(".xls") or lower_fn.endswith(".pdf")):
+        raise HTTPException(status_code=400, detail="Unsupported file type. Upload CSV, Excel, or PDF.")
     _check_burst_limit(db, user.id)
     content = await file.read()
     if len(content) > MAX_UPLOAD_BYTES:

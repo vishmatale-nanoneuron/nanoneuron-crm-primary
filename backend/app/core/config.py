@@ -5,8 +5,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-this-in-production"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
-    OPENAI_API_KEY: str = ""
-    GROQ_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""  # unused — kept for backward compat with existing env vars
     ENVIRONMENT: str = "production"
     ADMIN_SECRET: str = ""
     ADMIN_EMAIL: str = "vish.matale@gmail.com"

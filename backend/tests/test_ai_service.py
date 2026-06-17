@@ -14,7 +14,7 @@ from app.services.ai_service import (
     classify_sub_vertical,
     _assess_data_quality,
     _fallback_analysis,
-    _extract_key_rows,
+    _smart_sample,
 )
 
 # ── Sample data ───────────────────────────────────────────────────────────────
@@ -225,58 +225,34 @@ SH-004,Delivered,Delhivery"""
     assert result["risk_score"] <= 40
 
 
-# ── _extract_key_rows ─────────────────────────────────────────────────────────
+# ── _smart_sample ─────────────────────────────────────────────────────────────
 
-def test_extract_key_rows_short_circuit_for_30_rows():
+def test_smart_sample_passthrough_for_30_rows():
     header = "Machine,Shift,Downtime_mins"
     rows = "\n".join([f"M{i},Morning,{i * 5}" for i in range(30)])
     text = f"{header}\n{rows}"
-    # client=None is safe here — should return before touching the client
-    result = _extract_key_rows(text, None, "any-model")
-    assert result == text
+    assert _smart_sample(text) == text
 
-def test_extract_key_rows_short_circuit_for_1_row():
+def test_smart_sample_passthrough_for_1_row():
     text = "col1,col2\nval1,val2"
-    result = _extract_key_rows(text, None, "any-model")
-    assert result == text
+    assert _smart_sample(text) == text
 
-def test_extract_key_rows_graceful_fallback_on_llm_error(mocker):
-    header = "Machine,Shift,Downtime_mins"
-    rows = "\n".join([f"M{i},Morning,{i * 5}" for i in range(31)])
-    text = f"{header}\n{rows}"
-    mock_client = mocker.MagicMock()
-    mock_client.chat.completions.create.side_effect = Exception("LLM offline")
-    result = _extract_key_rows(text, mock_client, "any-model")
-    assert result == text  # falls back to full text
+def test_smart_sample_reduces_large_file():
+    header = "Machine,Shift,Status"
+    rows = [f"M{i},Morning,{'Delayed' if i % 5 == 0 else 'OK'}" for i in range(50)]
+    text = header + "\n" + "\n".join(rows)
+    result = _smart_sample(text)
+    result_lines = result.strip().split("\n")
+    assert result_lines[0] == header
+    assert len(result_lines) <= 21  # header + up to 20 data rows
 
-def test_extract_key_rows_uses_valid_row_numbers(mocker):
-    header = "Machine,Shift,Downtime_mins"
-    data_rows = [f"M{i},Morning,{i * 5}" for i in range(35)]
-    text = f"{header}\n" + "\n".join(data_rows)
-    mock_client = mocker.MagicMock()
-    mock_resp = mocker.MagicMock()
-    mock_resp.choices[0].message.content = "1,5,10,15,20"
-    mock_client.chat.completions.create.return_value = mock_resp
-    result = _extract_key_rows(text, mock_client, "any-model")
-    lines = result.strip().split("\n")
-    assert lines[0] == header
-    assert len(lines) == 6  # header + 5 rows
-    assert lines[1] == data_rows[0]   # row 1 (1-based)
-    assert lines[2] == data_rows[4]   # row 5
-
-def test_extract_key_rows_ignores_out_of_bounds_row_numbers(mocker):
-    header = "Machine,Shift,Downtime"
-    data_rows = [f"M{i},Morning,{i}" for i in range(35)]
-    text = f"{header}\n" + "\n".join(data_rows)
-    mock_client = mocker.MagicMock()
-    mock_resp = mocker.MagicMock()
-    # Row 999 is out of bounds — should be silently ignored
-    mock_resp.choices[0].message.content = "1,3,999"
-    mock_client.chat.completions.create.return_value = mock_resp
-    result = _extract_key_rows(text, mock_client, "any-model")
-    lines = result.strip().split("\n")
-    assert lines[0] == header
-    assert len(lines) == 3  # header + rows 1 and 3 only (999 dropped)
+def test_smart_sample_prioritises_critical_rows():
+    header = "ID,Status"
+    critical = [f"SH-{i},Delayed" for i in range(15)]
+    clean = [f"SH-{i + 100},Delivered" for i in range(20)]
+    text = header + "\n" + "\n".join(clean + critical)
+    result = _smart_sample(text)
+    assert "Delayed" in result  # critical rows must be included
 
 
 # ── _strip_json_codeblock ────────────────────────────────────────────────────

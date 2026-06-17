@@ -1,12 +1,11 @@
 """
 OpsOracle AI — vertical analysis engine.
 Design principles: evidence-first, honest confidence, never fabricate.
-Chinese engineering patterns: ByteDance telemetry, Alibaba data moat, Ant Financial risk.
+LLM: Claude claude-sonnet-4-6 (sole AI engine). Regex fallback when key absent.
 """
 import json
 import re
 import logging
-from openai import OpenAI
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -127,7 +126,6 @@ COST_MULTIPLIERS = {
     "retail": 150, "supply_chain": 400, "devops": 600, "mlops": 900, "operations": 300,
 }
 
-# Industry-calibrated annual recurrence multipliers (replaces the hardcoded ×4).
 ANNUAL_SAVINGS_MULTIPLIERS = {
     "logistics": 3.2, "manufacturing": 4.8, "warehouse": 2.8,
     "retail": 3.5, "supply_chain": 4.2, "devops": 5.5, "mlops": 6.5, "operations": 3.0,
@@ -161,28 +159,33 @@ SUB_VERTICAL_PATTERNS = {
         ("dark_store",  r"dark.store|quick.commerce|rapid.delivery|10.minute|instant.delivery|hyperlocal"),
     ],
     "devops": [
-        ("ci_cd",         r"jenkins|github.actions|gitlab.ci|circleci|pipeline|build.fail|workflow|runner"),
-        ("incident_mgmt", r"pagerduty|opsgenie|incident|\bon.call\b|mttr|escalat|\bp0\b|\bp1\b|\bp2\b|postmortem"),
-        ("infrastructure",r"kubernetes|k8s|terraform|ansible|helm|docker|container|cloud.run|aws|gcp|azure"),
+        ("ci_cd",          r"jenkins|github.actions|gitlab.ci|circleci|pipeline|build.fail|workflow|runner"),
+        ("incident_mgmt",  r"pagerduty|opsgenie|incident|\bon.call\b|mttr|escalat|\bp0\b|\bp1\b|\bp2\b|postmortem"),
+        ("infrastructure", r"kubernetes|k8s|terraform|ansible|helm|docker|container|cloud.run|aws|gcp|azure"),
     ],
     "mlops": [
-        ("model_monitoring", r"accuracy|drift|baseline|degraded|precision|recall|f1|auc|confusion.matrix"),
+        ("model_monitoring",  r"accuracy|drift|baseline|degraded|precision|recall|f1|auc|confusion.matrix"),
         ("training_pipeline", r"training|retraining|epoch|loss|dataset|feature.store|data.quality|null.value|pipeline.fail"),
-        ("inference",        r"latency|p99|p95|throughput|prediction|inference|serving|endpoint|sla.breach|timeout"),
+        ("inference",         r"latency|p99|p95|throughput|prediction|inference|serving|endpoint|sla.breach|timeout"),
     ],
 }
+
+_CRITICAL_ROW_RE = re.compile(
+    r"delay|fail|broken|late|error|stockout|incident|drift|overdue|critical|breach|backlog|downtime|rejected|return",
+    re.IGNORECASE,
+)
 
 
 def classify_industry(text: str) -> str:
     lower = text.lower()
     scores = {
-        "logistics":      len(re.findall(r"shipment|delivery|carrier|freight|dispatch|tracking|route|awb|consignment|courier", lower)),
-        "manufacturing":  len(re.findall(r"production|assembly|machine|downtime|shift|maintenance|throughput|yield|oee|defect|rework", lower)),
-        "warehouse":      len(re.findall(r"warehouse|inventory|sku|storage|bin|pick|pack|receipt|putaway|wms|stockout|reorder", lower)),
-        "retail":         len(re.findall(r"store|sales|customer|demand|forecast|pos|order|fulfillment|returns|sell.through", lower)),
-        "supply_chain":   len(re.findall(r"supplier|vendor|procurement|purchase|bom|lead.time|safety.stock|rfq|sourcing", lower)),
-        "devops":         len(re.findall(r"deploy|pipeline|incident|mttr|rollback|ci.cd|build.fail|\bp1\b|\bp2\b|\bp0\b|devops|kubernetes|jenkins|sre", lower)),
-        "mlops":          len(re.findall(r"model|accuracy|drift|training|inference|retraining|feature.store|latency|prediction|mlops|data.quality", lower)),
+        "logistics":     len(re.findall(r"shipment|delivery|carrier|freight|dispatch|tracking|route|awb|consignment|courier", lower)),
+        "manufacturing": len(re.findall(r"production|assembly|machine|downtime|shift|maintenance|throughput|yield|oee|defect|rework", lower)),
+        "warehouse":     len(re.findall(r"warehouse|inventory|sku|storage|bin|pick|pack|receipt|putaway|wms|stockout|reorder", lower)),
+        "retail":        len(re.findall(r"store|sales|customer|demand|forecast|pos|order|fulfillment|returns|sell.through", lower)),
+        "supply_chain":  len(re.findall(r"supplier|vendor|procurement|purchase|bom|lead.time|safety.stock|rfq|sourcing", lower)),
+        "devops":        len(re.findall(r"deploy|pipeline|incident|mttr|rollback|ci.cd|build.fail|\bp1\b|\bp2\b|\bp0\b|devops|kubernetes|jenkins|sre", lower)),
+        "mlops":         len(re.findall(r"model|accuracy|drift|training|inference|retraining|feature.store|latency|prediction|mlops|data.quality", lower)),
     }
     best = max(scores, key=lambda k: scores[k])
     return best if scores[best] > 0 else "operations"
@@ -197,10 +200,9 @@ def classify_sub_vertical(industry: str, text: str) -> str:
 
 
 def _assess_data_quality(text: str, industry: str) -> str:
-    """Real confidence: based on actual data quantity and domain signal strength.
-    Returns 'high' | 'medium' | 'low' | 'insufficient_data'. Never fake."""
+    """Real confidence: based on actual data quantity and domain signal strength."""
     lines = [l for l in text.strip().split("\n") if l.strip()]
-    data_rows = max(0, len(lines) - 1)  # subtract header
+    data_rows = max(0, len(lines) - 1)
     lower = text.lower()
     signal_count = len(re.findall(
         r"delay|fail|broken|stockout|incident|drift|error|late|pending|overdue|critical|breach|backlog|downtime",
@@ -212,37 +214,50 @@ def _assess_data_quality(text: str, industry: str) -> str:
         return "high"
     if data_rows >= 8 and signal_count >= 2:
         return "medium"
-    if data_rows >= 3:
-        return "low"
-    return "insufficient_data"
+    return "low"
 
 
 def _fallback_annual_savings(industry: str, cost_impact_usd: int) -> int:
-    """Industry-calibrated multiplier. Never hardcoded ×4."""
     return int(cost_impact_usd * ANNUAL_SAVINGS_MULTIPLIERS.get(industry, 3.0))
 
 
+def _smart_sample(text: str) -> str:
+    """For files > 30 data rows: keep first 5 rows (baseline) + top 15 critical rows by keyword score.
+    Pure regex — no LLM call needed."""
+    lines = text.strip().split("\n")
+    if len(lines) - 1 <= 30:
+        return text
+    header = lines[0]
+    data_lines = lines[1:]
+    scored = sorted(enumerate(data_lines), key=lambda x: -len(_CRITICAL_ROW_RE.findall(x[1])))
+    critical_idx = {i for i, _ in scored[:15]}
+    baseline_idx = set(range(min(5, len(data_lines))))
+    selected = [data_lines[i] for i in sorted(critical_idx | baseline_idx)]
+    logger.info("Smart sample: %d rows selected from %d total", len(selected), len(data_lines))
+    return header + "\n" + "\n".join(selected)
+
+
 def _fallback_analysis(text: str, industry: str) -> dict:
-    """Regex fallback — fires only when LLM is unavailable.
-    Always sets analysis_method='fallback_regex' so UI can warn the user."""
+    """Regex fallback — fires only when Claude is unavailable.
+    Honest about its limitations: keyword counts only, no entity extraction."""
     lower = text.lower()
-    delay_hits   = len(re.findall(r"delay|late|pending|backlog|dispatch", lower))
-    inv_hits     = len(re.findall(r"stockout|shortage|inventory|low stock|out of stock", lower))
-    bottle_hits  = len(re.findall(r"bottleneck|slow|blocked|queue|capacity", lower))
-    risk_score   = min(95, 20 + delay_hits * 8 + inv_hits * 7 + bottle_hits * 6)
-    rows         = max(1, len(text.split("\n")))
-    cost         = int(risk_score / 100 * rows * COST_MULTIPLIERS.get(industry, 300))
-    delay_prob   = min(95, 15 + delay_hits * 12)
-    inv_risk     = min(95, 10 + inv_hits * 15)
+    delay_hits  = len(re.findall(r"delay|late|pending|backlog|dispatch", lower))
+    inv_hits    = len(re.findall(r"stockout|shortage|inventory|low stock|out of stock", lower))
+    bottle_hits = len(re.findall(r"bottleneck|slow|blocked|queue|capacity", lower))
+    risk_score  = min(95, 20 + delay_hits * 8 + inv_hits * 7 + bottle_hits * 6)
+    rows        = max(1, len(text.split("\n")))
+    cost        = int(risk_score / 100 * rows * COST_MULTIPLIERS.get(industry, 300))
+    delay_prob  = min(95, 15 + delay_hits * 12)
+    inv_risk    = min(95, 10 + inv_hits * 15)
     sub_vertical = classify_sub_vertical(industry, text)
-    confidence   = _assess_data_quality(text, industry)
-    annual       = _fallback_annual_savings(industry, cost)
-    pain_parts = []
-    if delay_hits: pain_parts.append(f"{delay_hits} delay/late signals")
-    if inv_hits:   pain_parts.append(f"{inv_hits} inventory shortage signals")
+    confidence  = _assess_data_quality(text, industry)
+    annual      = _fallback_annual_savings(industry, cost)
+    pain_parts  = []
+    if delay_hits:  pain_parts.append(f"{delay_hits} delay/late signals")
+    if inv_hits:    pain_parts.append(f"{inv_hits} inventory shortage signals")
     if bottle_hits: pain_parts.append(f"{bottle_hits} bottleneck signals")
     pain_str = "; ".join(pain_parts) if pain_parts else "no critical signals detected"
-    logger.warning("AI fallback fired for industry=%s — LLM unavailable, using regex (analysis_method=fallback_regex)", industry)
+    logger.warning("AI fallback fired for industry=%s — Claude unavailable, using regex", industry)
     return {
         "risk_score": risk_score,
         "delay_probability": delay_prob,
@@ -250,7 +265,7 @@ def _fallback_analysis(text: str, industry: str) -> dict:
         "executive_summary": (
             f"Pattern analysis detected {pain_str} in this {industry} report "
             f"(risk score: {risk_score}/100). Estimated cost at risk: ₹{cost * 83:,} (${cost:,}). "
-            "Note: AI engine unavailable — these findings are keyword-pattern estimates, not LLM analysis."
+            "Note: AI engine unavailable — these findings are keyword-pattern estimates, not AI analysis."
         ),
         "bottleneck_summary": (
             f"{bottle_hits} capacity/queue signals detected — review 'blocked', 'queue', 'capacity' rows."
@@ -267,22 +282,22 @@ def _fallback_analysis(text: str, industry: str) -> dict:
             {"timeframe": "THIS MONTH", "action": f"Audit low-stock items — {inv_risk}% inventory risk detected", "owner": "Inventory Team", "impact": "Eliminate stockout-driven lost revenue", "urgency": "important"},
             {"timeframe": "NEXT QUARTER", "action": "Implement daily OpsOracle scanning for early detection", "owner": "Operations Lead", "impact": "Early detection reduces cost impact by up to 60%", "urgency": "strategic"},
         ]),
-        "evidence": json.dumps([f"Keyword scan found {delay_hits} delay signals, {inv_hits} inventory signals, {bottle_hits} bottleneck signals across {rows} rows. Note: specific row citations require LLM analysis."]),
+        "evidence": json.dumps([f"Keyword scan found {delay_hits} delay signals, {inv_hits} inventory signals, {bottle_hits} bottleneck signals across {rows} rows. Specific row citations require AI analysis."]),
         "confidence_level": confidence,
-        "data_quality_issues": json.dumps(["LLM engine unavailable — specific item names and row-level evidence not available. Counts are keyword frequency estimates."]),
+        "data_quality_issues": json.dumps(["AI engine unavailable — specific item names and row-level evidence not available. Counts are keyword frequency estimates."]),
         "agi_reasoning": json.dumps([
-            f"Step 1: Classified as {industry}/{sub_vertical} using keyword pattern matching (LLM unavailable)",
+            f"Step 1: Classified as {industry}/{sub_vertical} using keyword pattern matching (AI unavailable)",
             f"Step 2: Keyword scan found {delay_hits} delay signals, {inv_hits} inventory signals, {bottle_hits} bottleneck signals across {rows} rows",
-            "Step 3: Pattern analysis only — specific row IDs and cross-column correlation require LLM analysis",
+            "Step 3: Pattern analysis only — specific row IDs and cross-column correlation require AI analysis",
             f"Step 4: Estimated cost exposure: {rows} rows × industry multiplier = ₹{cost * 83:,} at risk",
-            "Step 5: Regex fallback cannot determine root cause — LLM engine required for causal reasoning",
+            "Step 5: Regex fallback cannot determine root cause — AI engine required for causal reasoning",
         ]),
         "causal_chain": json.dumps({
-            "root_cause": f"Keyword signals detected in {rows} rows — specific root cause requires LLM analysis",
+            "root_cause": f"Keyword signals detected in {rows} rows — specific root cause requires AI analysis",
             "trigger": f"{delay_hits} delay + {bottle_hits} bottleneck signals exceeded normal thresholds",
-            "cascade": ["Operational risk elevated — specific downstream effects require LLM analysis"],
-            "intervention_window": "Review all flagged rows — LLM engine required for specific intervention recommendations",
-            "if_ignored": "Detected signals may compound — specific trajectory requires LLM analysis",
+            "cascade": ["Operational risk elevated — specific downstream effects require AI analysis"],
+            "intervention_window": "Review all flagged rows — AI engine required for specific intervention recommendations",
+            "if_ignored": "Detected signals may compound — specific trajectory requires AI analysis",
         }),
         "industry_detected": industry,
         "sub_vertical": sub_vertical,
@@ -292,27 +307,10 @@ def _fallback_analysis(text: str, industry: str) -> dict:
     }
 
 
-_CLIENT_CACHE: tuple | None = None
-
-
-def _get_client():
-    global _CLIENT_CACHE
-    if _CLIENT_CACHE is not None:
-        return _CLIENT_CACHE
-    if settings.GROQ_API_KEY:
-        _CLIENT_CACHE = (OpenAI(api_key=settings.GROQ_API_KEY, base_url="https://api.groq.com/openai/v1"), "llama-3.3-70b-versatile", "llm_groq")
-        return _CLIENT_CACHE
-    if settings.OPENAI_API_KEY:
-        _CLIENT_CACHE = (OpenAI(api_key=settings.OPENAI_API_KEY), "gpt-4o-mini", "llm_openai")
-        return _CLIENT_CACHE
-    return None, None, None
-
-
 _CLAUDE_CLIENT_CACHE = None
 
 
 def _get_claude_client():
-    """Return Anthropic client if ANTHROPIC_API_KEY is configured."""
     global _CLAUDE_CLIENT_CACHE
     if _CLAUDE_CLIENT_CACHE is not None:
         return _CLAUDE_CLIENT_CACHE
@@ -328,7 +326,6 @@ def _get_claude_client():
 
 
 def _strip_json_codeblock(raw: str) -> str:
-    """Claude occasionally wraps JSON in ```json ``` — strip it."""
     raw = raw.strip()
     if raw.startswith("```"):
         raw = re.sub(r'^```(?:json)?\s*', '', raw)
@@ -336,49 +333,20 @@ def _strip_json_codeblock(raw: str) -> str:
     return raw.strip()
 
 
-def _analyze_with_claude(claude_client, prompt: str) -> str:
-    """Call claude-sonnet-4-6 for the main analysis. Returns raw JSON string."""
+def _call_claude(claude_client, system: str, user: str, max_tokens: int = 3500) -> str:
     msg = claude_client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=3500,
+        max_tokens=max_tokens,
         temperature=0.2,
-        system="You are OpsOracle AI. Return ONLY valid JSON — no markdown, no explanation, no code fences.",
-        messages=[{"role": "user", "content": prompt}],
+        system=system,
+        messages=[{"role": "user", "content": user}],
     )
     return msg.content[0].text
 
 
-def _extract_key_rows(text: str, client, model: str) -> str:
-    """ByteDance sparse compute: Pass 1 — extract 15 most critical rows for large files."""
-    lines = text.strip().split("\n")
-    if len(lines) - 1 <= 30:
-        return text
-    header = lines[0]
-    data_lines = lines[1:]
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": (
-                f"From this {len(data_lines)}-row CSV, give me the row numbers (1-based, excluding header) "
-                "of the 15 most critical problem rows: delays, failures, stockouts, anomalies. "
-                "Reply ONLY with comma-separated numbers. No other text.\n\n"
-                f"Header: {header}\n\nData:\n{text[:6000]}"
-            )}],
-            temperature=0.0, max_tokens=80,
-        )
-        nums = [int(x.strip()) for x in resp.choices[0].message.content.strip().split(",") if x.strip().isdigit()]
-        if nums:
-            focused = header + "\n" + "\n".join(data_lines[i-1] for i in nums if 1 <= i <= len(data_lines))
-            logger.info("Two-pass: %d critical rows extracted from %d total", len(nums), len(data_lines))
-            return focused
-    except Exception as exc:
-        logger.warning("Pass 1 failed, using full data: %s", exc)
-    return text
-
-
-def _critique_grounding(result: dict, client, model: str) -> dict:
-    """Grounding audit — inverted CAI: verify claims in summaries trace to evidence items.
-    Only softens unsupported claims. Never adds new specifics not already in the summaries."""
+def _critique_grounding(result: dict, claude_client) -> dict:
+    """Grounding audit: verify that specific factual claims in summaries trace to evidence.
+    Only softens unsupported claims — never adds new information."""
     evidence_items: list = []
     try:
         evidence_items = json.loads(result.get("evidence") or "[]")
@@ -406,28 +374,19 @@ EXECUTIVE SUMMARY:
 BOTTLENECK SUMMARY:
 {bottleneck_summary}
 
-RULES — read carefully:
-1. A claim is grounded if the specific item name, number, or pattern it asserts appears in at least one evidence item above.
-2. If a claim cites a specific number or item name NOT in the evidence, soften it. Example: "M2-Lathe had exactly 3 breakdowns" → "a lathe showed repeated breakdowns" when the count is not evidenced.
-3. You may NEVER add new information, new names, new numbers, or new claims that are not already present in the summaries.
-4. If all claims are grounded, return both summaries UNCHANGED and set grounding_ok to true.
-5. Keep the same approximate length and structure — only edit specific unsupported claims.
+RULES:
+1. A claim is grounded if the specific item name, number, or pattern it asserts appears in at least one evidence item.
+2. If a claim cites a specific number or name NOT in the evidence, soften it (e.g. "exactly 3 breakdowns" → "repeated breakdowns").
+3. NEVER add new information, names, numbers, or claims not already in the summaries.
+4. If all claims are grounded, return both summaries UNCHANGED with grounding_ok=true.
+5. Keep the same approximate length and structure.
 
 Return JSON only:
-{{"grounding_ok": true, "executive_summary": "...", "bottleneck_summary": "...", "notes": "All claims grounded"}}
-or
-{{"grounding_ok": false, "executive_summary": "...", "bottleneck_summary": "...", "notes": "Softened: <brief description of what was changed and why>"}}"""
+{{"grounding_ok": true, "executive_summary": "...", "bottleneck_summary": "...", "notes": "..."}}"""
 
     try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            max_tokens=800,
-            response_format={"type": "json_object"},
-        )
-        raw = resp.choices[0].message.content or "{}"
-        audit = json.loads(raw)
+        raw = _call_claude(claude_client, "You are a grounding auditor. Return ONLY valid JSON.", prompt, max_tokens=700)
+        audit = json.loads(_strip_json_codeblock(raw))
         return {
             "grounding_ok": bool(audit.get("grounding_ok", True)),
             "executive_summary": audit.get("executive_summary") or executive_summary,
@@ -441,16 +400,13 @@ or
 
 
 def generate_cross_vertical_brief(verticals: list) -> dict:
-    """Dario Amodei 'brilliant friend' principle: synthesize across ALL verticals.
-
-    Finds hidden causal chains and the single highest-leverage intervention that
-    a siloed per-vertical analysis misses. Requires ≥2 verticals.
-    """
+    """Synthesize insights across multiple verticals — finds hidden causal chains
+    that siloed per-vertical analysis misses. Requires ≥2 verticals."""
     if len(verticals) < 2:
         return {"available": False}
 
-    client, model, _ = _get_client()
-    if not client:
+    claude_client = _get_claude_client()
+    if not claude_client:
         return {"available": False}
 
     verticals_text = "\n\n".join([
@@ -480,15 +436,13 @@ Return ONLY valid JSON:
 }}"""
 
     try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
+        raw = _call_claude(
+            claude_client,
+            "You are an elite cross-domain operations intelligence advisor. Return ONLY valid JSON.",
+            prompt,
             max_tokens=600,
-            response_format={"type": "json_object"},
         )
-        raw = resp.choices[0].message.content or "{}"
-        result = json.loads(raw)
+        result = json.loads(_strip_json_codeblock(raw))
         result["available"] = True
         result["vertical_count"] = len(verticals)
         return result
@@ -498,191 +452,162 @@ Return ONLY valid JSON:
 
 
 def analyze_operations(extracted_text: str) -> dict:
-    industry    = classify_industry(extracted_text)
+    industry     = classify_industry(extracted_text)
     sub_vertical = classify_sub_vertical(industry, extracted_text)
     industry_hint = INDUSTRY_CONTEXT.get(industry, INDUSTRY_CONTEXT["operations"])
-    confidence  = _assess_data_quality(extracted_text, industry)
+    confidence   = _assess_data_quality(extracted_text, industry)
 
-    client, model, analysis_method = _get_client()
-    if not client:
+    claude_client = _get_claude_client()
+    if not claude_client:
         result = _fallback_analysis(extracted_text, industry)
         result["sub_vertical"] = sub_vertical
         return result
 
-    focused_text = _extract_key_rows(extracted_text, client, model)
-
+    focused_text = _smart_sample(extracted_text)
     kpi_template = INDUSTRY_KPI_PROMPT.get(industry, INDUSTRY_KPI_PROMPT["operations"])
+
+    system_instruction = (
+        "You are OpsOracle AI — the world's best operations intelligence advisor. "
+        "Your job: find what is actually broken in the client's data, name it precisely, "
+        "and tell them exactly what to do about it. "
+        "Return ONLY valid JSON — no markdown, no explanation, no code fences. "
+        "Never fabricate data. Speak like a brilliant senior ops consultant: direct, specific, no empty hedging."
+    )
+
     prompt = f"""You are OpsOracle AI — a vertical AI for {industry} operations teams.
 {industry_hint}
 
 {INDIA_CONTEXT}
 
-CORE RULES:
-1. Name the specific item. Never say "a carrier" — say "BlueDart Mumbai→Delhi". Never say "a machine" — say "M2-Lathe". Use exact IDs, SKUs, routes, services from the data.
+CORE RULES — these are non-negotiable:
+1. Name the specific item. Never say "a carrier" — say "BlueDart Mumbai→Delhi". Never say "a machine" — say "M2-Lathe Line 3". Use exact IDs, SKUs, routes, services from the data.
 2. Show your evidence. Every finding must cite the actual rows or patterns that justify it.
-3. Be honest about what you cannot determine. If a metric cannot be computed from this data, say so in data_quality_issues.
+3. Be honest about what you cannot determine. If a metric cannot be computed from this data, say so explicitly in data_quality_issues.
 4. Never invent numbers not grounded in the data.
-5. Actions must name WHO, WHAT exactly, and the quantified financial impact.
-6. Speak like a brilliant senior consultant, not a report generator. When evidence is strong, be direct: "Your BlueDart route has a 100% failure rate this week." When confidence is low or data is sparse, be equally direct about that: "Only 3 rows — insufficient to determine root cause. Upload 30 days of history." Never hedge strong findings with "may" or "could potentially"; never invent facts for weak ones.
+5. Actions must name WHO (exact role), WHAT (exact step with vendor/route/machine named), and the quantified ₹ impact.
+6. Speak like a brilliant senior consultant. Strong evidence → direct declarative sentences: "Your BlueDart route has a 100% failure rate this week — ₹2.8L at risk." Sparse data → equally direct about the gap: "Only 3 rows — insufficient. Upload 30 days of history for a reliable analysis." Never hedge strong findings; never fabricate for weak ones.
 
-Return a JSON object with exactly these keys:
+Return a JSON object with EXACTLY these keys:
 
 risk_score: integer 0-100
+
 delay_probability: integer 0-100
+
 inventory_risk: integer 0-100
 
-executive_summary: 2-3 sentences for a VP/COO. When confidence is high or medium — write direct declarative sentences, never "may", "appears to", or "could potentially". Say "Your BlueDart Mumbai→Delhi route is failing 100% — ₹2.8L at risk this period." Lead with the single biggest pain (name it specifically), quote ₹ costs, end with total ₹ exposure. When confidence is low or insufficient_data — be equally direct about the gap: "This dataset has only 3 rows — not enough for a reliable call. Upload 30 days of history for a proper analysis."
+executive_summary: 2-3 sentences for a VP/COO. Lead with the single biggest pain (name it specifically), quote ₹ cost, end with total ₹ exposure. When data is sparse, be direct about that instead.
 
-bottleneck_summary: The single constraint choking throughput. Name it with exact data: "M2-Lathe: 3 breakdowns this week, 360 total downtime minutes, ₹1,94,000 production value lost" or "BlueDart Mumbai→Delhi: 5/5 shipments delayed, 100% failure rate". If no clear bottleneck is visible, say "No dominant bottleneck identified in this data — {industry} metrics appear within normal variance."
+bottleneck_summary: The single constraint choking throughput. Name it with exact data: "M2-Lathe: 3 breakdowns this week, 360 downtime minutes, ₹1,94,000 lost" or "BlueDart Mumbai→Delhi: 5/5 shipments delayed, 100% failure rate." If no clear bottleneck: "No dominant bottleneck in this data — {industry} metrics within normal variance."
 
-evidence: JSON array of strings — cite the SPECIFIC data points (row values, IDs, patterns) that drove your findings. Each string should be one concrete observation. Example: ["SH-1001: BlueDart Mumbai→Delhi, 3 days delayed", "SH-1003: same route, 2 days delayed", "Pattern: 5/5 BlueDart Mumbai→Delhi shipments delayed (100% failure rate this week)"]. Maximum 8 items. Do NOT put newlines inside strings.
+evidence: JSON array of strings — cite SPECIFIC data points (row values, IDs, patterns) that drove your findings. Each string = one concrete observation. Max 8 items. No newlines inside strings.
 
-confidence_level: string — one of: "high" (multiple corroborating rows, clear pattern), "medium" (some signals, pattern visible but not conclusive), "low" (sparse data, single-point signals), "insufficient_data" (fewer than 3 rows or no domain-relevant columns). Be honest.
+confidence_level: one of: "high" | "medium" | "low" | "insufficient_data" — be honest.
 
-data_quality_issues: JSON array of strings — list what you CANNOT assess from this data and why. Example: ["Supplier lead times not visible — add lead_time column to assess supply chain risk", "No cost columns — financial impact is estimated, not computed"]. Empty array [] if data is complete. Do NOT put newlines inside strings.
+data_quality_issues: JSON array of strings — what you CANNOT assess from this data and why. Empty array [] if data is complete. No newlines inside strings.
 
-recommendations_json: JSON array of EXACTLY 3 objects. No newlines inside string values. The "action" field must name the exact vendor/carrier/machine/SKU from the data and tell the specific role precisely what to do — e.g. "Logistics Manager: call BlueDart account team, cite SH-1001 to SH-1005 delays, demand SLA credit for ₹45,000 and reroute next 3 Mumbai to Delhi shipments to Delhivery Express today." Never write "review carrier performance" — write the exact next step. Format:
+recommendations_json: JSON array of EXACTLY 3 objects. No newlines inside string values. The "action" field must name the exact vendor/carrier/machine/SKU and tell the specific role precisely what to do — e.g. "Logistics Manager: call BlueDart account team today, cite SH-1001 to SH-1005 delays, demand SLA credit for ₹45,000 and reroute next 3 Mumbai→Delhi shipments to Delhivery Express." Never write "review carrier performance." Write the exact next step.
 [
-  {{"timeframe": "THIS WEEK", "action": "exact WHO (role) does WHAT specific step to WHICH named vendor/machine/SKU/route from the data", "owner": "role", "impact": "quantified result in ₹ or %", "urgency": "critical"}},
+  {{"timeframe": "THIS WEEK", "action": "exact WHO does WHAT to WHICH named entity", "owner": "role", "impact": "quantified ₹ or %", "urgency": "critical"}},
   {{"timeframe": "THIS MONTH", "action": "...", "owner": "...", "impact": "...", "urgency": "important"}},
   {{"timeframe": "NEXT QUARTER", "action": "...", "owner": "...", "impact": "...", "urgency": "strategic"}}
 ]
 
-recommendations: same 3 actions as plain text (one per line, numbered) for backward compatibility.
+recommendations: same 3 actions as plain text, one per line, numbered.
 
-agi_reasoning: JSON array of EXACTLY 5 strings — your step-by-step reasoning chain. Show your work. Each string is ONE sentence. NO newlines inside strings.
-["Step 1: Classified as <industry>/<sub_vertical> because <specific evidence from the data>",
- "Step 2: Identified <N> critical items by <method>: <specific IDs, routes, machines, SKUs>",
- "Step 3: Cross-signal pattern: <what makes this systemic, not random — specific cross-column evidence>",
- "Step 4: Financial exposure: <show the calculation — N items × avg value = total ₹>",
- "Step 5: Root cause and intervention: <causal reasoning for why the top recommendation is the correct fix>"]
+agi_reasoning: JSON array of EXACTLY 5 strings — your step-by-step reasoning. Show your work. Each string = ONE sentence. No newlines inside strings.
+["Step 1: Classified as <industry>/<sub_vertical> because <specific evidence>",
+ "Step 2: Identified <N> critical items: <specific IDs, routes, machines, SKUs>",
+ "Step 3: Cross-signal pattern: <what makes this systemic, not random>",
+ "Step 4: Financial exposure: <calculation — N items × avg value = total ₹>",
+ "Step 5: Root cause and intervention: <causal reasoning for top recommendation>"]
 
-causal_chain: JSON object — causal analysis GROUNDED IN THIS DATA ONLY. Never fabricate facts not visible in the data.
-{{"root_cause": "underlying condition causing this — named specifically (machine, route, supplier, SKU) with evidence from data",
-  "trigger": "specific event this period that crossed a failure threshold — cite what you see in the data",
-  "cascade": ["downstream effect 1 visible in data", "effect 2 if data supports it — max 3 items, omit if not evidenced"],
-  "intervention_window": "WHO (specific role) does WHAT (exact named step) by WHEN (hours or days). E.g. 'Ops Manager must call BlueDart Carrier Relations within 24 hours before Thursday delivery window closes — request SLA audit for Mumbai to Delhi corridor.'",
-  "if_ignored": "honest trajectory from current data patterns — qualitative direction only, no fabricated numbers"}}
+causal_chain: JSON object — grounded in THIS DATA ONLY.
+{{"root_cause": "underlying condition — named specifically with evidence from data",
+  "trigger": "specific event this period that crossed a failure threshold — cite data",
+  "cascade": ["downstream effect 1 visible in data", "effect 2 if evidenced — max 3 items"],
+  "intervention_window": "WHO (role) does WHAT (exact named step) by WHEN. E.g. 'Ops Manager must call BlueDart Carrier Relations within 24 hours before Thursday delivery window closes.'",
+  "if_ignored": "honest trajectory from current data patterns — qualitative direction only"}}
 
 industry_detected: one of: logistics | manufacturing | warehouse | retail | supply_chain | devops | mlops | operations
 
-industry_kpis: JSON object — compute ONLY the KPIs you can derive from the actual column values. Use null for any KPI you cannot compute. Never fabricate numbers. Template for this industry ({industry}):
+industry_kpis: JSON object — compute ONLY KPIs derivable from actual column values. Use null for any KPI you cannot compute. Template ({industry}):
 {kpi_template}
 
-cost_impact_usd: integer — total USD (NEVER INR) at risk this period. Always store as USD integer (₹83 ≈ $1 if converting). 0 if no issues found. Ground in actual data.
+cost_impact_usd: integer — total USD at risk this period. Store as USD (₹83 ≈ $1). 0 if no issues. Ground in actual data.
 
-annual_savings_usd: integer — realistic annual savings if all 3 recommendations are fully implemented. Use domain knowledge:
-  logistics: freight recurrence + carrier SLA costs (20-35% of annual route cost at risk)
-  manufacturing: OEE improvement × production value/min × operating minutes/year
-  warehouse: stockout prevention × annual demand + carrying cost reduction
-  devops: MTTR reduction × incident frequency × $500-$5000/min downtime
-  mlops: accuracy improvement × business outcome value (fraud missed, churn not caught)
-  Be conservative. Typical 2-8× the current cost_impact. Do NOT use a fixed multiplier.
+annual_savings_usd: integer — realistic annual savings if all 3 recommendations are fully implemented. Be conservative. Typical 2-8× cost_impact. Do NOT use a fixed multiplier.
 
 DATA TO ANALYZE:
 {focused_text[:12000]}"""
 
-    # LLM call: Claude primary (highest quality) → Groq/OpenAI fallback
-    raw: str | None = None
-    actual_method: str = analysis_method
-
-    claude_client = _get_claude_client()
-    if claude_client:
-        try:
-            raw = _analyze_with_claude(claude_client, prompt)
-            actual_method = "llm_claude"
-        except Exception as _exc:
-            logger.warning("Claude analysis failed, falling back to Groq: %s", _exc)
-
-    if raw is None and not client:
+    try:
+        raw = _call_claude(claude_client, system_instruction, prompt)
+        result = json.loads(_strip_json_codeblock(raw))
+    except Exception as exc:
+        logger.error("Claude analysis failed: %s", exc, exc_info=True)
         result = _fallback_analysis(extracted_text, industry)
         result["sub_vertical"] = sub_vertical
-        return result
-
-    try:
-        if raw is None:
-            response = client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-                max_tokens=3500,
-                response_format={"type": "json_object"},
-            )
-            raw = response.choices[0].message.content or "{}"
-        result = json.loads(_strip_json_codeblock(raw))
-
-        # Validate and coerce critical fields
-        result.setdefault("industry_detected", industry)
-        result.setdefault("cost_impact_usd", 0)
-        result.setdefault("confidence_level", confidence)
-
-        # Ensure evidence and data_quality_issues are valid JSON strings
-        for field in ("evidence", "data_quality_issues"):
-            val = result.get(field)
-            if isinstance(val, list):
-                result[field] = json.dumps(val)
-            elif not isinstance(val, str):
-                result[field] = json.dumps([])
-
-        # Ensure recommendations plain text is a string (LLM occasionally returns a list)
-        recs = result.get("recommendations")
-        if isinstance(recs, list):
-            result["recommendations"] = "\n".join(str(r) for r in recs)
-        elif not isinstance(recs, str):
-            result["recommendations"] = ""
-
-        # Ensure recommendations_json is a valid JSON string
-        rj = result.get("recommendations_json")
-        if isinstance(rj, list):
-            result["recommendations_json"] = json.dumps(rj)
-        elif not isinstance(rj, str):
-            result["recommendations_json"] = json.dumps([])
-
-        # Ensure agi_reasoning is a valid JSON string
-        ar = result.get("agi_reasoning")
-        if isinstance(ar, list):
-            result["agi_reasoning"] = json.dumps(ar)
-        elif not isinstance(ar, str):
-            result["agi_reasoning"] = json.dumps([])
-
-        # Ensure causal_chain is a valid JSON string
-        cc = result.get("causal_chain")
-        if isinstance(cc, dict):
-            result["causal_chain"] = json.dumps(cc)
-        elif not isinstance(cc, str):
-            result["causal_chain"] = json.dumps({})
-
-        # Ensure industry_kpis is a valid JSON string; drop null values
-        kpis = result.get("industry_kpis")
-        if isinstance(kpis, dict):
-            clean = {k: v for k, v in kpis.items() if v is not None}
-            result["industry_kpis"] = json.dumps(clean) if clean else None
-        else:
-            result["industry_kpis"] = None
-
-        # Annual savings: use LLM value if present and non-zero, else industry multiplier
-        if not result.get("annual_savings_usd"):
-            result["annual_savings_usd"] = _fallback_annual_savings(
-                result.get("industry_detected", industry),
-                int(result.get("cost_impact_usd", 0)),
-            )
-
-        result["sub_vertical"]    = sub_vertical
-        result["analysis_method"] = actual_method
-
-        # Grounding audit: only softens unsupported claims, never adds new specifics
-        audit = _critique_grounding(result, client, model)
-        result["executive_summary"]  = audit["executive_summary"]
-        result["bottleneck_summary"] = audit["bottleneck_summary"]
-        result["cai_revised"]        = not audit["grounding_ok"]
-        result["cai_critique_notes"] = audit["notes"]
-
-        return result
-
-    except Exception as exc:
-        logger.error("AI analysis failed (%s): %s", model, exc, exc_info=True)
-        result = _fallback_analysis(extracted_text, industry)
-        result["sub_vertical"]       = sub_vertical
-        result["cai_revised"]        = False
+        result["cai_revised"] = False
         result["cai_critique_notes"] = None
         return result
+
+    # Validate and coerce critical fields
+    result.setdefault("industry_detected", industry)
+    result.setdefault("cost_impact_usd", 0)
+    result.setdefault("confidence_level", confidence)
+
+    for field in ("evidence", "data_quality_issues"):
+        val = result.get(field)
+        if isinstance(val, list):
+            result[field] = json.dumps(val)
+        elif not isinstance(val, str):
+            result[field] = json.dumps([])
+
+    recs = result.get("recommendations")
+    if isinstance(recs, list):
+        result["recommendations"] = "\n".join(str(r) for r in recs)
+    elif not isinstance(recs, str):
+        result["recommendations"] = ""
+
+    rj = result.get("recommendations_json")
+    if isinstance(rj, list):
+        result["recommendations_json"] = json.dumps(rj)
+    elif not isinstance(rj, str):
+        result["recommendations_json"] = json.dumps([])
+
+    ar = result.get("agi_reasoning")
+    if isinstance(ar, list):
+        result["agi_reasoning"] = json.dumps(ar)
+    elif not isinstance(ar, str):
+        result["agi_reasoning"] = json.dumps([])
+
+    cc = result.get("causal_chain")
+    if isinstance(cc, dict):
+        result["causal_chain"] = json.dumps(cc)
+    elif not isinstance(cc, str):
+        result["causal_chain"] = json.dumps({})
+
+    kpis = result.get("industry_kpis")
+    if isinstance(kpis, dict):
+        clean = {k: v for k, v in kpis.items() if v is not None}
+        result["industry_kpis"] = json.dumps(clean) if clean else None
+    else:
+        result["industry_kpis"] = None
+
+    if not result.get("annual_savings_usd"):
+        result["annual_savings_usd"] = _fallback_annual_savings(
+            result.get("industry_detected", industry),
+            int(result.get("cost_impact_usd", 0)),
+        )
+
+    result["sub_vertical"]    = sub_vertical
+    result["analysis_method"] = "llm_claude"
+
+    # Grounding audit: softens any unsupported specific claims
+    audit = _critique_grounding(result, claude_client)
+    result["executive_summary"]  = audit["executive_summary"]
+    result["bottleneck_summary"] = audit["bottleneck_summary"]
+    result["cai_revised"]        = not audit["grounding_ok"]
+    result["cai_critique_notes"] = audit["notes"]
+
+    return result
