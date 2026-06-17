@@ -131,14 +131,14 @@ export function LiveDemo() {
               <div className="grid grid-cols-2 gap-4">
                 {(result.cost_impact_usd ?? 0) > 0 && (
                   <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-4 py-3">
-                    <p className="text-xs text-red-400/70 uppercase tracking-wider">Cost at risk</p>
-                    <p className="text-xl font-bold text-red-400">${result.cost_impact_usd!.toLocaleString()}</p>
+                    <p className="text-xs text-red-400/70 uppercase tracking-wider">Cost at risk (₹)</p>
+                    <p className="text-xl font-bold text-red-400">₹{(result.cost_impact_usd! * 83).toLocaleString("en-IN")}</p>
                   </div>
                 )}
                 {(result.annual_savings_usd ?? 0) > 0 && (
                   <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-4 py-3">
-                    <p className="text-xs text-emerald-400/70 uppercase tracking-wider">Annual savings if fixed</p>
-                    <p className="text-xl font-bold text-emerald-400">${result.annual_savings_usd!.toLocaleString()}</p>
+                    <p className="text-xs text-emerald-400/70 uppercase tracking-wider">Annual savings if addressed (₹)</p>
+                    <p className="text-xl font-bold text-emerald-400">₹{(result.annual_savings_usd! * 83).toLocaleString("en-IN")}</p>
                   </div>
                 )}
               </div>

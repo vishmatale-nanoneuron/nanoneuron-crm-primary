@@ -162,8 +162,8 @@ export default function Dashboard() {
           </div>
           {!loading && totalCostUsd > 0 && (
             <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-4 py-3 text-right">
-              <p className="text-xs text-red-400/60 uppercase tracking-wider">Total cost at risk</p>
-              <p className="text-xl font-bold text-red-400">${totalCostUsd.toLocaleString()}</p>
+              <p className="text-xs text-red-400/60 uppercase tracking-wider">Total cost at risk (₹)</p>
+              <p className="text-xl font-bold text-red-400">₹{(totalCostUsd * 83).toLocaleString("en-IN")}</p>
               <p className="text-xs text-red-400/40 mt-0.5">last {Math.min(reports.length, 5)} reports</p>
             </div>
           )}

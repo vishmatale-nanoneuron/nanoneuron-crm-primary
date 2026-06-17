@@ -448,15 +448,15 @@ export default function InsightAnalysis({ insight, showBenchmarkBadge = true, sh
         <div className="grid gap-4 md:grid-cols-2">
           {(insight.cost_impact_usd ?? 0) > 0 && (
             <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-5 py-4 print:border-red-200 print:bg-red-50">
-              <p className="text-xs text-red-400/70 uppercase tracking-wider mb-1 print:text-red-600">Cost at risk (current period)</p>
-              <p className="text-2xl font-bold text-red-400 print:text-red-700">${insight.cost_impact_usd!.toLocaleString()}</p>
+              <p className="text-xs text-red-400/70 uppercase tracking-wider mb-1 print:text-red-600">Cost at risk — this period (₹)</p>
+              <p className="text-2xl font-bold text-red-400 print:text-red-700">₹{(insight.cost_impact_usd! * 83).toLocaleString("en-IN")}</p>
               <p className="text-xs text-white/40 mt-1 print:text-gray-500">From detected operational issues</p>
             </div>
           )}
           {(insight.annual_savings_usd ?? 0) > 0 && (
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-5 py-4 print:border-green-200 print:bg-green-50">
-              <p className="text-xs text-emerald-400/70 uppercase tracking-wider mb-1 print:text-green-600">Annual savings if fixed</p>
-              <p className="text-2xl font-bold text-emerald-400 print:text-green-700">${insight.annual_savings_usd!.toLocaleString()}</p>
+              <p className="text-xs text-emerald-400/70 uppercase tracking-wider mb-1 print:text-green-600">Annual savings if addressed (₹)</p>
+              <p className="text-2xl font-bold text-emerald-400 print:text-green-700">₹{(insight.annual_savings_usd! * 83).toLocaleString("en-IN")}</p>
               <p className="text-xs text-white/40 mt-1 print:text-gray-500">AI estimate — industry recurrence patterns</p>
             </div>
           )}

@@ -483,6 +483,7 @@ CORE RULES:
 3. Be honest about what you cannot determine. If a metric cannot be computed from this data, say so in data_quality_issues.
 4. Never invent numbers not grounded in the data.
 5. Actions must name WHO, WHAT exactly, and the quantified financial impact.
+6. Speak like a brilliant senior consultant, not a report generator. When evidence is strong, be direct: "Your BlueDart route has a 100% failure rate this week." When confidence is low or data is sparse, be equally direct about that: "Only 3 rows — insufficient to determine root cause. Upload 30 days of history." Never hedge strong findings with "may" or "could potentially"; never invent facts for weak ones.
 
 Return a JSON object with exactly these keys:
 
@@ -490,7 +491,7 @@ risk_score: integer 0-100
 delay_probability: integer 0-100
 inventory_risk: integer 0-100
 
-executive_summary: 2-3 sentences for a VP/COO. Lead with the single biggest pain (name it specifically). Quote ₹ costs. End with total financial exposure. If data is insufficient to make a strong claim, say so.
+executive_summary: 2-3 sentences for a VP/COO. When confidence is high or medium — write direct declarative sentences, never "may", "appears to", or "could potentially". Say "Your BlueDart Mumbai→Delhi route is failing 100% — ₹2.8L at risk this period." Lead with the single biggest pain (name it specifically), quote ₹ costs, end with total ₹ exposure. When confidence is low or insufficient_data — be equally direct about the gap: "This dataset has only 3 rows — not enough for a reliable call. Upload 30 days of history for a proper analysis."
 
 bottleneck_summary: The single constraint choking throughput. Name it with exact data: "M2-Lathe: 3 breakdowns this week, 360 total downtime minutes, ₹1,94,000 production value lost" or "BlueDart Mumbai→Delhi: 5/5 shipments delayed, 100% failure rate". If no clear bottleneck is visible, say "No dominant bottleneck identified in this data — {industry} metrics appear within normal variance."
 
@@ -500,9 +501,9 @@ confidence_level: string — one of: "high" (multiple corroborating rows, clear 
 
 data_quality_issues: JSON array of strings — list what you CANNOT assess from this data and why. Example: ["Supplier lead times not visible — add lead_time column to assess supply chain risk", "No cost columns — financial impact is estimated, not computed"]. Empty array [] if data is complete. Do NOT put newlines inside strings.
 
-recommendations_json: JSON array of EXACTLY 3 objects. No newlines inside string values. Format:
+recommendations_json: JSON array of EXACTLY 3 objects. No newlines inside string values. The "action" field must name the exact vendor/carrier/machine/SKU from the data and tell the specific role precisely what to do — e.g. "Logistics Manager: call BlueDart account team, cite SH-1001 to SH-1005 delays, demand SLA credit for ₹45,000 and reroute next 3 Mumbai to Delhi shipments to Delhivery Express today." Never write "review carrier performance" — write the exact next step. Format:
 [
-  {{"timeframe": "THIS WEEK", "action": "specific action with exact item names from data", "owner": "role", "impact": "quantified result in ₹ or $ or %", "urgency": "critical"}},
+  {{"timeframe": "THIS WEEK", "action": "exact WHO (role) does WHAT specific step to WHICH named vendor/machine/SKU/route from the data", "owner": "role", "impact": "quantified result in ₹ or %", "urgency": "critical"}},
   {{"timeframe": "THIS MONTH", "action": "...", "owner": "...", "impact": "...", "urgency": "important"}},
   {{"timeframe": "NEXT QUARTER", "action": "...", "owner": "...", "impact": "...", "urgency": "strategic"}}
 ]
@@ -520,7 +521,7 @@ causal_chain: JSON object — causal analysis GROUNDED IN THIS DATA ONLY. Never 
 {{"root_cause": "underlying condition causing this — named specifically (machine, route, supplier, SKU) with evidence from data",
   "trigger": "specific event this period that crossed a failure threshold — cite what you see in the data",
   "cascade": ["downstream effect 1 visible in data", "effect 2 if data supports it — max 3 items, omit if not evidenced"],
-  "intervention_window": "time-sensitive action before this worsens — specific action, owner, and timing from data context",
+  "intervention_window": "WHO (specific role) does WHAT (exact named step) by WHEN (hours or days). E.g. 'Ops Manager must call BlueDart Carrier Relations within 24 hours before Thursday delivery window closes — request SLA audit for Mumbai to Delhi corridor.'",
   "if_ignored": "honest trajectory from current data patterns — qualitative direction only, no fabricated numbers"}}
 
 industry_detected: one of: logistics | manufacturing | warehouse | retail | supply_chain | devops | mlops | operations
@@ -528,7 +529,7 @@ industry_detected: one of: logistics | manufacturing | warehouse | retail | supp
 industry_kpis: JSON object — compute ONLY the KPIs you can derive from the actual column values. Use null for any KPI you cannot compute. Never fabricate numbers. Template for this industry ({industry}):
 {kpi_template}
 
-cost_impact_usd: integer — total USD at risk this period. 0 if no issues found. Ground this in actual row data where possible.
+cost_impact_usd: integer — total USD (NEVER INR) at risk this period. Always store as USD integer (₹83 ≈ $1 if converting). 0 if no issues found. Ground in actual data.
 
 annual_savings_usd: integer — realistic annual savings if all 3 recommendations are fully implemented. Use domain knowledge:
   logistics: freight recurrence + carrier SLA costs (20-35% of annual route cost at risk)
