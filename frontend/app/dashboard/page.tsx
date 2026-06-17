@@ -81,6 +81,8 @@ export default function Dashboard() {
   const [plan, setPlan] = useState<PlanInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [brief, setBrief] = useState<Brief | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!getToken()) { router.push("/login"); return; }
@@ -114,6 +116,25 @@ export default function Dashboard() {
       .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
   }, [router]);
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    try {
+      const token = getToken();
+      const res = await fetch(`${API}/auth/account`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        localStorage.removeItem("token");
+        router.push("/login");
+      } else {
+        alert("Failed to delete account. Please try again.");
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const trialDays = plan?.days_remaining ?? 0;
   const showTrialBanner = plan?.is_trial === true;
@@ -345,6 +366,55 @@ export default function Dashboard() {
             </div>
           </section>
         )}
+        {/* Data & Privacy */}
+        <section className="card mt-6 border-white/8">
+          <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-4">Data &amp; Privacy</h2>
+          <ul className="space-y-2">
+            {[
+              "Uploaded files are processed in-memory — raw files are never stored on disk",
+              "Extracted operational data is stored encrypted at rest in Cloud SQL (Google asia-south1)",
+              "AI analysis runs on Groq LLM — your data is used for inference only, not model training",
+              "All connections are HTTPS/TLS. Passwords are hashed with bcrypt",
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-2 text-xs text-white/40">
+                <span className="text-emerald-400 mt-0.5 shrink-0">✓</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-5 border-t border-white/6 pt-4">
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="text-xs text-red-400/60 hover:text-red-400 transition-colors"
+              >
+                Delete my account and all data →
+              </button>
+            ) : (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                <p className="text-sm text-red-300 mb-3">
+                  This permanently deletes your account, all uploaded reports, AI insights, and payment records.{" "}
+                  <strong>This cannot be undone.</strong>
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    {deleting ? "Deleting..." : "Yes, delete everything"}
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="rounded-xl border border-white/15 px-4 py-2 text-sm text-white/60 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       </main>
     </>
   );

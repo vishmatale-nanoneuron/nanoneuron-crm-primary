@@ -1,7 +1,9 @@
 import os
 import logging
-from fastapi import FastAPI
+import traceback as _traceback
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from app.core.database import Base, engine
 from app.models import models
@@ -113,6 +115,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def _global_exception_handler(request: Request, exc: Exception):
+    logger.error(
+        "Unhandled %s at %s: %s\n%s",
+        type(exc).__name__, request.url.path, exc, _traceback.format_exc(),
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error. Our team has been notified."},
+    )
 
 app.include_router(auth.router)
 app.include_router(reports.router)

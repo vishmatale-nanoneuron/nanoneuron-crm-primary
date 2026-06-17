@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text as _sa_text
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.models import User, Subscription
@@ -48,3 +49,19 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.delete("/account")
+def delete_account(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Permanently delete account and all associated data. Irreversible."""
+    uid = str(user.id)
+    db.execute(_sa_text(
+        "DELETE FROM ops_insights USING ops_reports WHERE ops_insights.report_id = ops_reports.id AND ops_reports.user_id = :uid"
+    ), {"uid": uid})
+    db.execute(_sa_text("DELETE FROM ops_reports WHERE user_id = :uid"), {"uid": uid})
+    db.execute(_sa_text("DELETE FROM ops_subscriptions WHERE user_id = :uid"), {"uid": uid})
+    db.execute(_sa_text("DELETE FROM ops_manual_payments WHERE user_id = :uid"), {"uid": uid})
+    db.execute(_sa_text("DELETE FROM ops_briefs WHERE user_id = :uid"), {"uid": uid})
+    db.execute(_sa_text("DELETE FROM ops_users WHERE id = :uid"), {"uid": uid})
+    db.commit()
+    return {"status": "deleted", "message": "Your account and all data have been permanently deleted."}
