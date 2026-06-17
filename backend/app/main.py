@@ -119,4 +119,4 @@ app.include_router(digest.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "product": "OpsOracle AI", "version": "3.8.0"}
+    return {"status": "ok", "product": "OpsOracle AI", "version": "3.9.0"}

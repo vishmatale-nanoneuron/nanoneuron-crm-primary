@@ -401,7 +401,9 @@ def generate_cross_vertical_brief(verticals: list) -> dict:
     if len(verticals) < 2:
         return {"available": False}
 
-    client, model = _get_client()
+    client, model, _ = _get_client()
+    if not client:
+        return {"available": False}
 
     verticals_text = "\n\n".join([
         f"VERTICAL: {v['industry'].upper().replace('_', ' ')}\n"

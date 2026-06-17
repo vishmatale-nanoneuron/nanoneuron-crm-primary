@@ -1,9 +1,11 @@
 import json
 import secrets
+import time
 import uuid as _uuid
 from datetime import datetime
 import json as _json
 from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -20,7 +22,9 @@ from app.services.ai_service import analyze_operations, classify_sub_vertical, I
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 DAILY_FREE_LIMIT = 3
-_DEMO_CACHE: dict[str, dict] = {}  # in-memory per-industry cache for public demo
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+_DEMO_CACHE: dict[str, tuple[dict, float]] = {}  # industry -> (result, monotonic_ts)
+_DEMO_CACHE_TTL = 24 * 3600.0  # 24 h — demo data changes rarely
 
 _PRO_ONLY = (
     "cost_impact_usd", "annual_savings_usd", "vertical_ai_score",
@@ -300,12 +304,13 @@ def _compute_kpi_comparison(kpis: dict, averages: dict, industry: str) -> str | 
 def public_demo(industry: str = "logistics"):
     """Public live demo — no login needed. Result cached per industry in memory."""
     industry = industry if industry in DEMO_SAMPLES else "logistics"
-    if industry not in _DEMO_CACHE:
+    cached = _DEMO_CACHE.get(industry)
+    if not cached or (time.monotonic() - cached[1]) > _DEMO_CACHE_TTL:
         text = DEMO_SAMPLES[industry]
         result = analyze_operations(text)
         result["industry"] = industry
-        _DEMO_CACHE[industry] = result
-    return _DEMO_CACHE[industry]
+        _DEMO_CACHE[industry] = (result, time.monotonic())
+    return _DEMO_CACHE[industry][0]
 
 
 @router.get("/shared/{share_token}", response_model=SharedReportResponse)
@@ -426,12 +431,14 @@ async def upload_report(
 ):
     _check_daily_limit(user, db)
     content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 10 MB.")
     try:
-        text, rows_count = parse_uploaded_file(file.filename, content)
+        text, rows_count = await run_in_threadpool(parse_uploaded_file, file.filename, content)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    result = analyze_operations(text)
+    result = await run_in_threadpool(analyze_operations, text)
     industry = result.get("industry_detected", "operations")
     sub_vertical = result.get("sub_vertical") or classify_sub_vertical(industry, text)
     is_premium = (user.plan_tier or "free") in ("pro", "enterprise")
