@@ -2,7 +2,7 @@ import json
 import secrets
 import time
 import uuid as _uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import json as _json
 from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -201,6 +201,20 @@ def _expire_trial_if_needed(db: Session, user: User) -> None:
         if active_sub:
             active_sub.status = "expired"
         db.commit()
+
+
+def _check_burst_limit(db: Session, user_id) -> None:
+    """Block more than 2 uploads in 60 seconds — prevents runaway jobs and quota exhaustion."""
+    cutoff = datetime.utcnow() - timedelta(seconds=60)
+    recent = db.query(Report).filter(
+        Report.user_id == user_id,
+        Report.created_at > cutoff,
+    ).count()
+    if recent >= 2:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit: maximum 2 uploads per minute. Please wait a moment before trying again.",
+        )
 
 
 def _check_daily_limit(user: User, db: Session) -> None:
@@ -430,6 +444,7 @@ async def upload_report(
     user: User = Depends(get_current_user),
 ):
     _check_daily_limit(user, db)
+    _check_burst_limit(db, user.id)
     content = await file.read()
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="File too large. Maximum size is 10 MB.")

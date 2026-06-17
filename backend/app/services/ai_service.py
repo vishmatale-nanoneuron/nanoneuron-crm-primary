@@ -308,6 +308,46 @@ def _get_client():
     return None, None, None
 
 
+_CLAUDE_CLIENT_CACHE = None
+
+
+def _get_claude_client():
+    """Return Anthropic client if ANTHROPIC_API_KEY is configured."""
+    global _CLAUDE_CLIENT_CACHE
+    if _CLAUDE_CLIENT_CACHE is not None:
+        return _CLAUDE_CLIENT_CACHE
+    if not settings.ANTHROPIC_API_KEY:
+        return None
+    try:
+        import anthropic  # type: ignore
+        _CLAUDE_CLIENT_CACHE = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        return _CLAUDE_CLIENT_CACHE
+    except ImportError:
+        logger.warning("anthropic package not installed — Claude unavailable")
+        return None
+
+
+def _strip_json_codeblock(raw: str) -> str:
+    """Claude occasionally wraps JSON in ```json ``` — strip it."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = re.sub(r'^```(?:json)?\s*', '', raw)
+        raw = re.sub(r'\s*```$', '', raw.rstrip())
+    return raw.strip()
+
+
+def _analyze_with_claude(claude_client, prompt: str) -> str:
+    """Call claude-sonnet-4-6 for the main analysis. Returns raw JSON string."""
+    msg = claude_client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=3500,
+        temperature=0.2,
+        system="You are OpsOracle AI. Return ONLY valid JSON — no markdown, no explanation, no code fences.",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return msg.content[0].text
+
+
 def _extract_key_rows(text: str, client, model: str) -> str:
     """ByteDance sparse compute: Pass 1 — extract 15 most critical rows for large files."""
     lines = text.strip().split("\n")
@@ -542,16 +582,34 @@ annual_savings_usd: integer — realistic annual savings if all 3 recommendation
 DATA TO ANALYZE:
 {focused_text[:12000]}"""
 
+    # LLM call: Claude primary (highest quality) → Groq/OpenAI fallback
+    raw: str | None = None
+    actual_method: str = analysis_method
+
+    claude_client = _get_claude_client()
+    if claude_client:
+        try:
+            raw = _analyze_with_claude(claude_client, prompt)
+            actual_method = "llm_claude"
+        except Exception as _exc:
+            logger.warning("Claude analysis failed, falling back to Groq: %s", _exc)
+
+    if raw is None and not client:
+        result = _fallback_analysis(extracted_text, industry)
+        result["sub_vertical"] = sub_vertical
+        return result
+
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=3500,
-            response_format={"type": "json_object"},
-        )
-        raw = response.choices[0].message.content or "{}"
-        result = json.loads(raw)
+        if raw is None:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=3500,
+                response_format={"type": "json_object"},
+            )
+            raw = response.choices[0].message.content or "{}"
+        result = json.loads(_strip_json_codeblock(raw))
 
         # Validate and coerce critical fields
         result.setdefault("industry_detected", industry)
@@ -610,7 +668,7 @@ DATA TO ANALYZE:
             )
 
         result["sub_vertical"]    = sub_vertical
-        result["analysis_method"] = analysis_method
+        result["analysis_method"] = actual_method
 
         # Grounding audit: only softens unsupported claims, never adds new specifics
         audit = _critique_grounding(result, client, model)

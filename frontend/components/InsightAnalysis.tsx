@@ -89,6 +89,44 @@ function ConfidenceBadge({ level }: { level: string | null | undefined }) {
   );
 }
 
+function InsufficientDataBanner({ level, issues, industry }: {
+  level: string | null | undefined;
+  issues: string | null | undefined;
+  industry: string;
+}) {
+  if (!level || (level !== "insufficient_data" && level !== "low")) return null;
+  const isInsufficient = level === "insufficient_data";
+  const items = parseJson<string[]>(issues, []);
+  const label = industry.replace(/_/g, " ");
+  return (
+    <div className={`rounded-xl border px-5 py-4 ${isInsufficient
+      ? "border-amber-500/40 bg-amber-500/8"
+      : "border-yellow-500/25 bg-yellow-500/6"}`}>
+      <p className={`text-sm font-semibold mb-2 ${isInsufficient ? "text-amber-400" : "text-yellow-400"}`}>
+        {isInsufficient
+          ? "⚑ Insufficient data — findings below are estimates only"
+          : "⚑ Limited data — findings may be incomplete"}
+      </p>
+      {items.length > 0 && (
+        <ul className="space-y-1 mb-3">
+          {items.slice(0, 4).map((item, i) => (
+            <li key={i} className="text-xs text-white/55 flex items-start gap-2">
+              <span className="shrink-0 mt-0.5 text-amber-400/60">·</span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      )}
+      <a
+        href="/upload"
+        className={`text-xs underline underline-offset-2 ${isInsufficient ? "text-amber-400" : "text-yellow-400"}`}
+      >
+        Download the {label} template → get reliable analysis with the right columns
+      </a>
+    </div>
+  );
+}
+
 const URGENCY_CONFIG: Record<string, { badge: string; border: string; bg: string }> = {
   critical: { badge: "bg-red-500 text-white", border: "border-red-500/30", bg: "bg-red-500/5" },
   important: { badge: "bg-yellow-500 text-black", border: "border-yellow-500/30", bg: "bg-yellow-500/5" },
@@ -427,6 +465,13 @@ export default function InsightAnalysis({ insight, showBenchmarkBadge = true, sh
           </p>
         </div>
       )}
+
+      {/* Insufficient / low data warning — shown before findings so clients aren't misled */}
+      <InsufficientDataBanner
+        level={insight.confidence_level}
+        issues={insight.data_quality_issues}
+        industry={industry}
+      />
 
       {/* Critical Bottleneck — prominent red alert, not buried in text */}
       {insight.bottleneck_summary && (

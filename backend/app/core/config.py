@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     # Razorpay gateway (set RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET in Cloud Run env vars)
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
+    ANTHROPIC_API_KEY: str = ""
 
     class Config:
         env_file = ".env"

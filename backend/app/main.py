@@ -136,4 +136,15 @@ app.include_router(digest.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "product": "OpsOracle AI", "version": "5.0.0"}
+    return {"status": "ok", "product": "OpsOracle AI", "version": "5.3.0"}
+
+
+@app.get("/health/ready")
+def readiness():
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        logger.error("DB not ready: %s", exc)
+        return JSONResponse(status_code=503, content={"status": "unavailable", "reason": "database"})
+    return {"status": "ready"}
