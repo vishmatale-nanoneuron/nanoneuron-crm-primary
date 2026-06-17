@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     BANK_ACCOUNT_NUMBER: str = ""
     BANK_IFSC: str = ""
     BANK_NAME: str = ""
+    # Razorpay gateway (set RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET in Cloud Run env vars)
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
 
     class Config:
         env_file = ".env"

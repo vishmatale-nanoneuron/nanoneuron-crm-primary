@@ -164,6 +164,17 @@ class ManualPaymentResponse(BaseModel):
         from_attributes = True
 
 
+class RazorpayOrderRequest(BaseModel):
+    plan_tier: str
+
+
+class RazorpayVerifyRequest(BaseModel):
+    order_id: str
+    payment_id: str
+    signature: str
+    plan_tier: str
+
+
 class BriefResponse(BaseModel):
     available: bool
     cross_pattern: str | None = None

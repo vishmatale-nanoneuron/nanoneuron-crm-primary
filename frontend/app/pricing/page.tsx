@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Script from "next/script";
 import Nav from "@/components/Nav";
 import { getToken } from "@/lib/api";
 
@@ -101,10 +102,22 @@ interface BankTransfer {
   created_at: string;
 }
 
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Razorpay: any;
+  }
+}
+
 export default function Pricing() {
   const router = useRouter();
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [error, setError] = useState("");
+
+  // Razorpay state
+  const [rzpReady, setRzpReady] = useState(false);
+  const [rzpLoading, setRzpLoading] = useState(false);
+  const [rzpSuccess, setRzpSuccess] = useState<string | null>(null);
 
   // Bank transfer state
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
@@ -131,6 +144,81 @@ export default function Pricing() {
       .then((d) => d && Array.isArray(d) && setMyTransfers(d)).catch(() => {});
   }, []);
 
+  async function handleRazorpayPay(planTier: string) {
+    const token = getToken();
+    if (!token) { router.push("/login?next=/pricing"); return; }
+    if (!rzpReady || typeof window.Razorpay === "undefined") {
+      setError("Payment gateway loading — please wait a moment and try again.");
+      return;
+    }
+    setRzpLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API}/payments/razorpay/create-order`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_tier: planTier }),
+      });
+      if (!res.ok) {
+        const e = await res.json();
+        throw new Error(e.detail || "Could not create payment order.");
+      }
+      const orderData = await res.json();
+
+      const planLabel = planTier
+        .replace("_annual", " Annual")
+        .replace(/^(\w)/, (c) => c.toUpperCase());
+
+      const rzp = new window.Razorpay({
+        key: orderData.key_id,
+        amount: orderData.amount,
+        currency: "INR",
+        order_id: orderData.order_id,
+        name: "OpsOracle AI",
+        description: `OpsOracle ${planLabel} — Operational Intelligence`,
+        image: "https://nanoneuron.ai/favicon.ico",
+        theme: { color: "#10b981" },
+        modal: {
+          ondismiss: () => setRzpLoading(false),
+        },
+        handler: async function (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) {
+          try {
+            const verifyRes = await fetch(`${API}/payments/razorpay/verify`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                order_id: response.razorpay_order_id,
+                payment_id: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+                plan_tier: planTier,
+              }),
+            });
+            if (!verifyRes.ok) {
+              const e = await verifyRes.json();
+              throw new Error(e.detail || "Payment verification failed. Contact service@nanoneuron.ai");
+            }
+            const data = await verifyRes.json();
+            setCurrentPlan(data.plan_tier);
+            setRzpSuccess(data.plan_tier);
+            setRzpLoading(false);
+            setTimeout(() => router.push("/dashboard"), 2500);
+          } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Payment verification failed. Contact service@nanoneuron.ai");
+            setRzpLoading(false);
+          }
+        },
+      });
+      rzp.open();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not start payment. Please try bank transfer.");
+      setRzpLoading(false);
+    }
+  }
+
   const openBankSection = useCallback(async (planTier: string) => {
     const token = getToken();
     if (!token) { router.push("/login?next=/pricing"); return; }
@@ -142,7 +230,7 @@ export default function Pricing() {
     setBankNotes("");
     setTransferMethod("upi");
     setError("");
-    if (bankDetails) return; // already fetched
+    if (bankDetails) return;
     setBankLoading(true);
     try {
       const res = await fetch(`${API}/payments/bank-details`, { headers: { Authorization: `Bearer ${token}` } });
@@ -195,6 +283,11 @@ export default function Pricing() {
 
   return (
     <>
+      <Script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="afterInteractive"
+        onLoad={() => setRzpReady(true)}
+      />
       <Nav />
       <main id="main-content" className="min-h-screen bg-zinc-950 text-white px-6 py-16">
         <div className="mx-auto max-w-5xl">
@@ -210,9 +303,17 @@ export default function Pricing() {
               <span className="text-emerald-400">data moat matters.</span>
             </h1>
             <p className="text-white/50 max-w-xl mx-auto">
-              Pay via UPI or bank transfer — directly to us, zero gateway fees.
+              Pay instantly via UPI, card, or net banking — or use direct bank transfer.
             </p>
           </div>
+
+          {/* Payment success banner */}
+          {rzpSuccess && (
+            <div className="mb-6 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-4 text-center max-w-2xl mx-auto">
+              <p className="text-emerald-400 font-semibold text-base mb-0.5">Payment successful!</p>
+              <p className="text-white/50 text-sm">Your <span className="text-white capitalize">{rzpSuccess}</span> plan is now active. Redirecting to dashboard…</p>
+            </div>
+          )}
 
           {error && (
             <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-red-400 text-sm max-w-2xl mx-auto">
@@ -286,6 +387,8 @@ export default function Pricing() {
                       </li>
                     ))}
                   </ul>
+
+                  {/* CTA — 3 states: free link, current plan badge, paid plan buttons */}
                   {plan.ctaLink ? (
                     <Link href={plan.ctaLink} className="block text-center rounded-xl border border-white/15 px-6 py-3 text-sm font-medium hover:bg-white/5 transition-colors">
                       Get Started Free
@@ -295,29 +398,40 @@ export default function Pricing() {
                       Active Plan
                     </div>
                   ) : (
-                    <button
-                      onClick={() => openBankSection(planTier)}
-                      className={`w-full rounded-xl px-6 py-3 text-sm font-semibold transition-all ${
-                        plan.highlight
-                          ? "bg-emerald-500 hover:bg-emerald-400 text-white"
-                          : "border border-white/15 hover:bg-white/5 text-white"
-                      }`}
-                    >
-                      Pay via UPI / Bank Transfer
-                    </button>
+                    <div className="space-y-2">
+                      {/* Primary: Razorpay — instant UPI / card / net banking */}
+                      <button
+                        onClick={() => handleRazorpayPay(planTier)}
+                        disabled={rzpLoading}
+                        className={`w-full rounded-xl px-6 py-3 text-sm font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+                          plan.highlight
+                            ? "bg-emerald-500 hover:bg-emerald-400 text-white"
+                            : "bg-white/10 hover:bg-white/15 text-white border border-white/20"
+                        }`}
+                      >
+                        {rzpLoading ? "Opening checkout…" : "Pay Now — UPI / Card / Net Banking"}
+                      </button>
+                      {/* Secondary: manual bank transfer */}
+                      <button
+                        onClick={() => openBankSection(planTier)}
+                        className="w-full rounded-xl border border-white/10 px-6 py-2 text-xs font-medium text-white/35 hover:text-white/60 hover:border-white/20 transition-colors"
+                      >
+                        Bank transfer (2–4 hrs, no gateway fee)
+                      </button>
+                    </div>
                   )}
                 </div>
               );
             })}
           </div>
 
-          {/* ── Bank / UPI payment section ── */}
+          {/* ── Bank / UPI manual payment section ── */}
           {showBankSection && (
-            <div className="max-w-xl mx-auto mb-16 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-8">
+            <div className="max-w-xl mx-auto mb-16 rounded-2xl border border-white/15 bg-white/3 p-8">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-bold text-emerald-300">Pay via UPI / Bank Transfer</h3>
-                  <p className="text-sm text-white/50 mt-0.5">0% gateway fee · Activates within 2–4 hrs on weekdays</p>
+                  <h3 className="text-lg font-bold text-white/80">Bank Transfer</h3>
+                  <p className="text-sm text-white/40 mt-0.5">0% gateway fee · Activates within 2–4 hrs on weekdays</p>
                 </div>
                 <button onClick={() => setShowBankSection(false)} className="text-white/30 hover:text-white/60 text-xl leading-none">✕</button>
               </div>
@@ -420,7 +534,7 @@ export default function Pricing() {
                         />
                       </div>
                       <button type="submit" disabled={bankSubmitting || utrRef.trim().length < 6}
-                        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white px-6 py-3 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        className="w-full rounded-xl bg-white/10 hover:bg-white/15 text-white px-6 py-3 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-white/15">
                         {bankSubmitting ? "Submitting…" : "Submit for Verification"}
                       </button>
                     </form>
@@ -459,9 +573,9 @@ export default function Pricing() {
           <div className="max-w-2xl mx-auto space-y-5">
             {[
               { q: "Can I cancel anytime?", a: "Yes. Monthly plans run 30 days from payment. Annual plans run 365 days. No auto-renewals — you choose each period." },
+              { q: "How does instant UPI/card payment work?", a: "Click 'Pay Now' on any paid plan. The Razorpay checkout opens — choose UPI (GPay, PhonePe, Paytm, BHIM, or any UPI app), credit/debit card, or net banking. Your plan activates the moment payment clears, typically under 30 seconds." },
               { q: "Is my operational data safe?", a: "Your uploaded data is used only for your analysis. Only anonymized aggregates (risk score averages) flow into industry benchmarks. No raw data is shared." },
-              { q: "How does payment work?", a: "Transfer the exact plan amount to our UPI ID or bank account shown on this page, then submit your UTR / transaction reference. We verify against our bank statement and activate your plan — usually within 2–4 business hours on weekdays. Zero gateway fees." },
-              { q: "Which UPI apps work?", a: "Any UPI app works — Google Pay, PhonePe, Paytm, BHIM, or your bank's app. For larger amounts (₹4,999 or ₹39,999), NEFT/RTGS/IMPS via net banking is more reliable." },
+              { q: "What if I prefer not to use a payment gateway?", a: "Use the 'Bank transfer' option on any plan card — transfer directly to our bank account or UPI ID, then submit your UTR reference. We verify manually and activate within 2–4 business hours on weekdays. Zero gateway fees." },
               { q: "I'm a startup. Can I get a discount?", a: "Email us at vish.matale@gmail.com with your startup details. We offer founder plans for early-stage teams." },
             ].map((item) => (
               <div key={item.q} className="border border-white/10 rounded-xl px-6 py-5">

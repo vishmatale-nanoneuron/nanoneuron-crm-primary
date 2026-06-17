@@ -1,14 +1,18 @@
+import base64
 import hashlib
 import hmac
 import json
 import logging
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.config import settings
 from app.models.models import User, Subscription
-from app.schemas.schemas import BankTransferRequest, PlanResponse
+from app.schemas.schemas import BankTransferRequest, PlanResponse, RazorpayOrderRequest, RazorpayVerifyRequest
 from app.api.deps import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -288,6 +292,129 @@ def reject_bank_transfer(
     db.commit()
     logger.info("Bank transfer rejected: id=%s reason=%s", payment_id, reason)
     return {"status": "rejected", "reason": reason}
+
+
+# ── Razorpay gateway ─────────────────────────────────────────
+
+def _razorpay_create_order(amount_paise: int, receipt: str) -> dict:
+    """Call Razorpay API to create an order — stdlib only, no SDK dependency."""
+    if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Instant payment not configured — please use bank transfer or contact service@nanoneuron.ai",
+        )
+    auth = base64.b64encode(
+        f"{settings.RAZORPAY_KEY_ID}:{settings.RAZORPAY_KEY_SECRET}".encode()
+    ).decode()
+    payload = json.dumps({"amount": amount_paise, "currency": "INR", "receipt": receipt}).encode()
+    req = urllib.request.Request(
+        "https://api.razorpay.com/v1/orders",
+        data=payload,
+        headers={"Content-Type": "application/json", "Authorization": f"Basic {auth}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode(errors="ignore")
+        logger.error("Razorpay order creation failed: %s %s", exc.code, body)
+        raise HTTPException(status_code=502, detail="Payment gateway error — please use bank transfer or contact support.")
+    except Exception as exc:
+        logger.error("Razorpay order error: %s", exc)
+        raise HTTPException(status_code=502, detail="Could not reach payment gateway. Please try again.")
+
+
+@router.post("/razorpay/create-order")
+async def create_razorpay_order(
+    body: RazorpayOrderRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create a Razorpay order for the selected plan — returns key_id + order_id for the checkout SDK."""
+    plan_tier = body.plan_tier.lower()
+    amount_inr = BANK_AMOUNTS.get(plan_tier)
+    if not amount_inr:
+        raise HTTPException(status_code=400, detail="Invalid plan tier.")
+
+    receipt = f"opsoracle_{str(user.id)[:8]}_{plan_tier}"
+    order = await run_in_threadpool(_razorpay_create_order, amount_inr * 100, receipt)
+
+    sub = Subscription(
+        user_id=user.id,
+        plan_tier=plan_tier,
+        gateway="razorpay",
+        gateway_order_id=order["id"],
+        razorpay_order_id=order["id"],
+        amount_paise=amount_inr * 100,
+        status="pending",
+    )
+    db.add(sub)
+    db.commit()
+
+    logger.info("Razorpay order created: plan=%s order=%s user=%s", plan_tier, order["id"], user.id)
+    return {
+        "order_id": order["id"],
+        "amount": amount_inr * 100,
+        "currency": "INR",
+        "key_id": settings.RAZORPAY_KEY_ID,
+        "plan_tier": plan_tier,
+    }
+
+
+@router.post("/razorpay/verify")
+async def verify_razorpay_payment(
+    body: RazorpayVerifyRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Verify Razorpay payment signature and instantly activate the user's plan."""
+    if not settings.RAZORPAY_KEY_SECRET:
+        raise HTTPException(status_code=503, detail="Payment verification unavailable.")
+
+    # Razorpay signature: HMAC_SHA256(order_id + "|" + payment_id, key_secret) hex digest
+    msg = f"{body.order_id}|{body.payment_id}".encode()
+    expected = hmac.new(
+        settings.RAZORPAY_KEY_SECRET.encode(),
+        msg,
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected, body.signature):
+        logger.warning("Razorpay signature mismatch: user=%s order=%s", user.id, body.order_id)
+        raise HTTPException(status_code=400, detail="Payment signature invalid — contact service@nanoneuron.ai if you were charged.")
+
+    sub = (
+        db.query(Subscription)
+        .filter(
+            Subscription.razorpay_order_id == body.order_id,
+            Subscription.user_id == user.id,
+        )
+        .first()
+    )
+    if not sub:
+        raise HTTPException(status_code=404, detail="Order not found. Contact service@nanoneuron.ai with your payment ID.")
+
+    if sub.status == "active":
+        return {"status": "active", "plan_tier": PLAN_BASE_TIER.get(sub.plan_tier, sub.plan_tier)}
+
+    sub.razorpay_payment_id = body.payment_id
+    sub.gateway_payment_id = body.payment_id
+    base_tier = _activate_subscription(db, sub, body.payment_id)
+
+    try:
+        from app.services.email_service import notify_user_payment_approved
+        notify_user_payment_approved(
+            user.email,
+            user.company_name or user.email,
+            base_tier,
+            BANK_AMOUNTS.get(sub.plan_tier, 0),
+        )
+    except Exception:
+        pass
+
+    logger.info("Razorpay payment verified: plan=%s payment=%s user=%s", base_tier, body.payment_id, user.id)
+    return {"status": "active", "plan_tier": base_tier}
 
 
 # ── My plan ───────────────────────────────────────────────────

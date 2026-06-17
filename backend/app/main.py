@@ -98,7 +98,7 @@ def _run_migrations() -> None:
 
 _run_migrations()
 
-app = FastAPI(title="OpsOracle AI API", version="4.0.0", redirect_slashes=False)
+app = FastAPI(title="OpsOracle AI API", version="5.0.0", redirect_slashes=False)
 
 origins = [
     "https://nanoneuron.ai",
@@ -123,4 +123,4 @@ app.include_router(digest.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "product": "OpsOracle AI", "version": "4.0.0"}
+    return {"status": "ok", "product": "OpsOracle AI", "version": "5.0.0"}
