@@ -22,7 +22,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Sub-vertical and geo pages
     { url: `${base}/warehouse-ai/ecommerce-fulfillment`,          lastModified: now, changeFrequency: "monthly", priority: 0.85 },
     { url: `${base}/manufacturing-ai/electronics-manufacturing`,   lastModified: now, changeFrequency: "monthly", priority: 0.85 },
-    { url: `${base}/india`,                                        lastModified: now, changeFrequency: "monthly", priority: 0.9 },
+    { url: `${base}/gstguard-ai`,                                   lastModified: now, changeFrequency: "weekly",  priority: 0.9 },
+    { url: `${base}/india`,                                         lastModified: now, changeFrequency: "monthly", priority: 0.9 },
     // Free calculators hub + 6 new tools
     { url: `${base}/tools`,                                               lastModified: now, changeFrequency: "monthly", priority: 0.9 },
     { url: `${base}/tools/safety-stock-calculator`,                       lastModified: now, changeFrequency: "yearly",  priority: 0.88 },

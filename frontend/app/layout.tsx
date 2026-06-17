@@ -71,8 +71,8 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  alternates: {
-    canonical: "https://nanoneuron.ai",
+  verification: {
+    google: "Dk4QVIfR4x_HpUSnhUS8TA8ftG5xrIdrZLOeNIW3a0Q",
   },
   category: "technology",
 };
