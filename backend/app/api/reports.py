@@ -438,7 +438,100 @@ def daily_usage(db: Session = Depends(get_db), user: User = Depends(get_current_
     return {"plan_tier": tier, "used": used, "limit": DAILY_FREE_LIMIT, "unlimited": False, "remaining": remaining}
 
 
-@router.post("/upload", response_model=InsightResponse)
+def _run_analysis_bg(
+    report_id: str,
+    text: str,
+    filename: str,
+    user_plan_tier: str,
+    user_email: str,
+    user_company: str,
+    risk_alerts: bool,
+):
+    """Background task: run Claude analysis, save Insight, update report status."""
+    from app.core.database import SessionLocal
+    db = SessionLocal()
+    try:
+        report = db.query(Report).filter(Report.id == report_id).first()
+        if not report:
+            return
+        result = analyze_operations(text)
+        industry = result.get("industry_detected", "operations")
+        sub_vertical = result.get("sub_vertical") or classify_sub_vertical(industry, text)
+        is_premium = (user_plan_tier or "free") in ("pro", "enterprise")
+        raw_kpis = _parse_kpis(result.get("industry_kpis"))
+        benchmark_count, kpi_averages = _update_benchmark(
+            db, industry,
+            int(result.get("risk_score", 0)),
+            int(result.get("delay_probability", 0)),
+            int(result.get("inventory_risk", 0)),
+            raw_kpis,
+        )
+        current_risk = int(result.get("risk_score", 0))
+        user_obj = db.query(User).filter(User.id == report.user_id).first()
+        risk_delta, baseline_comparison = _compute_baseline(db, report.user_id, industry, current_risk)
+        benchmark_comparison = _compute_kpi_comparison(raw_kpis, kpi_averages, industry) if is_premium and raw_kpis else None
+        insight_kwargs = _apply_plan_mask(dict(
+            report_id=report_id,
+            risk_score=current_risk,
+            delay_probability=int(result.get("delay_probability", 0)),
+            inventory_risk=int(result.get("inventory_risk", 0)),
+            bottleneck_summary=result.get("bottleneck_summary", ""),
+            executive_summary=result.get("executive_summary", ""),
+            recommendations=result.get("recommendations", ""),
+            industry_detected=industry,
+            sub_vertical=sub_vertical,
+            cost_impact_usd=int(result.get("cost_impact_usd", 0)),
+            vertical_ai_score=int(result.get("vertical_ai_score", 0)),
+            annual_savings_usd=int(result.get("annual_savings_usd", 0)),
+            benchmark_count=benchmark_count,
+            agi_analysis=is_premium,
+            analysis_method=result.get("analysis_method", "llm_claude"),
+            risk_delta=risk_delta,
+            baseline_comparison=baseline_comparison,
+            recommendations_json=result.get("recommendations_json"),
+            evidence=result.get("evidence"),
+            confidence_level=result.get("confidence_level"),
+            data_quality_issues=result.get("data_quality_issues"),
+            agi_reasoning=result.get("agi_reasoning"),
+            causal_chain=result.get("causal_chain"),
+            kpi_json=result.get("industry_kpis"),
+            benchmark_comparison_json=benchmark_comparison,
+            cai_revised=result.get("cai_revised", False),
+            cai_critique_notes=result.get("cai_critique_notes"),
+        ), is_premium)
+        insight = Insight(**insight_kwargs)
+        db.add(insight)
+        report.industry = industry
+        report.analysis_status = "done"
+        db.commit()
+        db.refresh(insight)
+        if current_risk >= 70 and risk_alerts:
+            try:
+                rec_list = _json.loads(result.get("recommendations_json") or "[]") or []
+                top_action = rec_list[0].get("action", "") if rec_list else ""
+                from app.services.email_service import send_high_risk_alert
+                send_high_risk_alert(
+                    user_email, user_company or user_email.split("@")[0],
+                    current_risk, result.get("bottleneck_summary", ""),
+                    top_action, industry, str(report_id),
+                    int(result.get("cost_impact_usd") or 0), settings.APP_URL,
+                )
+            except Exception:
+                pass
+    except Exception as exc:
+        try:
+            report = db.query(Report).filter(Report.id == report_id).first()
+            if report:
+                report.analysis_status = "failed"
+                report.analysis_error = str(exc)[:500]
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+@router.post("/upload")
 async def upload_report(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -459,92 +552,78 @@ async def upload_report(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    result = await run_in_threadpool(analyze_operations, text)
-    industry = result.get("industry_detected", "operations")
-    sub_vertical = result.get("sub_vertical") or classify_sub_vertical(industry, text)
-    is_premium = (user.plan_tier or "free") in ("pro", "enterprise")
-
     report = Report(
         user_id=user.id,
         file_name=file.filename,
         file_type=file.content_type,
         extracted_text=text,
         rows_count=rows_count,
-        industry=industry,
+        industry="processing",
+        analysis_status="processing",
     )
     db.add(report)
     db.commit()
     db.refresh(report)
 
-    raw_kpis = _parse_kpis(result.get("industry_kpis"))
-    benchmark_count, kpi_averages = _update_benchmark(
-        db, industry,
-        int(result.get("risk_score", 0)),
-        int(result.get("delay_probability", 0)),
-        int(result.get("inventory_risk", 0)),
-        raw_kpis,
+    background_tasks.add_task(
+        _run_analysis_bg,
+        str(report.id), text, file.filename or "",
+        user.plan_tier or "free", user.email,
+        user.company_name or "", getattr(user, "risk_alerts", True),
     )
+    return {"report_id": str(report.id), "status": "processing"}
 
-    current_risk = int(result.get("risk_score", 0))
-    risk_delta, baseline_comparison = _compute_baseline(db, user.id, industry, current_risk)
-    benchmark_comparison = _compute_kpi_comparison(raw_kpis, kpi_averages, industry) if is_premium and raw_kpis else None
 
-    insight_kwargs = _apply_plan_mask(dict(
-        report_id=report.id,
-        risk_score=current_risk,
-        delay_probability=int(result.get("delay_probability", 0)),
-        inventory_risk=int(result.get("inventory_risk", 0)),
-        bottleneck_summary=result.get("bottleneck_summary", ""),
-        executive_summary=result.get("executive_summary", ""),
-        recommendations=result.get("recommendations", ""),
-        industry_detected=industry,
-        sub_vertical=sub_vertical,
-        cost_impact_usd=int(result.get("cost_impact_usd", 0)),
-        vertical_ai_score=int(result.get("vertical_ai_score", 0)),
-        annual_savings_usd=int(result.get("annual_savings_usd", 0)),
-        benchmark_count=benchmark_count,
-        agi_analysis=is_premium,
-        analysis_method=result.get("analysis_method", "llm_groq"),
-        risk_delta=risk_delta,
-        baseline_comparison=baseline_comparison,
-        recommendations_json=result.get("recommendations_json"),
-        evidence=result.get("evidence"),
-        confidence_level=result.get("confidence_level"),
-        data_quality_issues=result.get("data_quality_issues"),
-        agi_reasoning=result.get("agi_reasoning"),
-        causal_chain=result.get("causal_chain"),
-        kpi_json=result.get("industry_kpis"),
-        benchmark_comparison_json=benchmark_comparison,
-        cai_revised=result.get("cai_revised", False),
-        cai_critique_notes=result.get("cai_critique_notes"),
-    ), is_premium)
-    insight = Insight(**insight_kwargs)
-    db.add(insight)
-    db.commit()
-    db.refresh(insight)
+def _insight_to_dict(insight: Insight) -> dict:
+    return {
+        "id": str(insight.id),
+        "report_id": str(insight.report_id),
+        "risk_score": insight.risk_score,
+        "delay_probability": insight.delay_probability,
+        "inventory_risk": insight.inventory_risk,
+        "bottleneck_summary": insight.bottleneck_summary,
+        "executive_summary": insight.executive_summary,
+        "recommendations": insight.recommendations,
+        "industry_detected": insight.industry_detected,
+        "sub_vertical": insight.sub_vertical,
+        "cost_impact_usd": insight.cost_impact_usd,
+        "annual_savings_usd": insight.annual_savings_usd,
+        "vertical_ai_score": insight.vertical_ai_score,
+        "analysis_method": insight.analysis_method,
+        "confidence_level": insight.confidence_level,
+        "data_quality_issues": insight.data_quality_issues,
+        "agi_reasoning": insight.agi_reasoning,
+        "causal_chain": insight.causal_chain,
+        "recommendations_json": insight.recommendations_json,
+        "evidence": insight.evidence,
+        "cai_revised": insight.cai_revised,
+        "cai_critique_notes": insight.cai_critique_notes,
+        "risk_delta": insight.risk_delta,
+        "benchmark_count": insight.benchmark_count,
+        "kpi_json": insight.kpi_json,
+        "benchmark_comparison_json": insight.benchmark_comparison_json,
+        "created_at": insight.created_at.isoformat() if insight.created_at else None,
+    }
 
-    if current_risk >= 70 and getattr(user, "risk_alerts", True):
-        from app.services.email_service import send_high_risk_alert
-        rec_list = []
-        try:
-            rec_list = _json.loads(result.get("recommendations_json") or "[]") or []
-        except Exception:
-            pass
-        top_action = rec_list[0].get("action", "") if rec_list else ""
-        background_tasks.add_task(
-            send_high_risk_alert,
-            user.email,
-            user.company_name or user.email.split("@")[0],
-            current_risk,
-            result.get("bottleneck_summary", ""),
-            top_action,
-            industry,
-            str(report.id),
-            int(result.get("cost_impact_usd") or 0),
-            settings.APP_URL,
-        )
 
-    return insight
+@router.get("/status/{report_id}")
+def get_analysis_status(
+    report_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Poll for async analysis status. Returns insight when status=done."""
+    report = db.query(Report).filter(Report.id == report_id, Report.user_id == user.id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if report.analysis_status == "failed":
+        return {"status": "failed", "error": report.analysis_error or "Analysis failed", "insight": None}
+    if report.analysis_status != "done":
+        return {"status": report.analysis_status, "insight": None}
+    insight = db.query(Insight).filter(Insight.report_id == report.id).order_by(Insight.created_at.desc()).first()
+    if not insight:
+        return {"status": "processing", "insight": None}
+    return {"status": "done", "insight": _insight_to_dict(insight)}
 
 
 @router.get("/brief", response_model=BriefResponse)

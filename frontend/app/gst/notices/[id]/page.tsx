@@ -65,10 +65,18 @@ export default function NoticeDetail() {
 
   useEffect(() => { fetchNotice(); }, [fetchNotice]);
 
-  // Poll if no drafts yet — background generation may still be in progress
+  // Poll if no drafts yet — background generation may still be in progress (max 60s)
   useEffect(() => {
     if (!notice || notice.drafts.length > 0) return;
+    let polls = 0;
+    const MAX_POLLS = 15;
     const poll = setInterval(async () => {
+      polls++;
+      if (polls >= MAX_POLLS) {
+        clearInterval(poll);
+        setError("Draft generation timed out. Click Regenerate to retry.");
+        return;
+      }
       const token = localStorage.getItem("token");
       if (!token) return;
       const res = await fetch(`${API}/gst/notices/${id}`, {
@@ -251,9 +259,20 @@ export default function NoticeDetail() {
           </div>
 
           {notice.drafts.length === 0 ? (
-            <div className="card text-center py-8 space-y-2">
-              <p className="text-white/40 animate-pulse">Draft being generated…</p>
-              <p className="text-xs text-white/25">This page auto-refreshes every 4 seconds.</p>
+            <div className="card text-center py-8 space-y-3">
+              {error ? (
+                <>
+                  <p className="text-red-400 text-sm">{error}</p>
+                  <button onClick={regenerate} disabled={regenerating} className="btn !py-2 !px-5 !text-sm">
+                    {regenerating ? "Generating…" : "Regenerate Draft"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-white/40 animate-pulse">Draft being generated…</p>
+                  <p className="text-xs text-white/25">This page auto-refreshes every 4 seconds.</p>
+                </>
+              )}
             </div>
           ) : activeDraft ? (
             <div className="card space-y-4">

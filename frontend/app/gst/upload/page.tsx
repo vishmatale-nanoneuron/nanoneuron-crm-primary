@@ -163,21 +163,21 @@ export default function GSTUpload() {
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {[
-                  ["Notice Type", notice.notice_type],
-                  ["GSTIN", notice.gstin],
-                  ["Taxpayer", notice.taxpayer_name],
-                  ["Notice No.", notice.notice_number],
-                  ["Notice Date", notice.notice_date],
-                  ["Deadline", notice.deadline],
-                  ["Period", notice.period],
-                  ["Demand", notice.demand_amount_inr ? `₹${notice.demand_amount_inr.toLocaleString("en-IN")}` : null],
-                ].map(([label, val]) => (
+                  ["Notice Type", notice.notice_type, null],
+                  ["GSTIN", notice.gstin, "gstin"],
+                  ["Taxpayer", notice.taxpayer_name, "taxpayer_name"],
+                  ["Notice No.", notice.notice_number, "notice_number"],
+                  ["Notice Date", notice.notice_date, "notice_date"],
+                  ["Deadline", notice.deadline, "deadline"],
+                  ["Period", notice.period, "period"],
+                  ["Demand", notice.demand_amount_inr ? `₹${notice.demand_amount_inr.toLocaleString("en-IN")}` : null, "demand_amount_inr"],
+                ].map(([label, val, fsKey]) => (
                   <div key={label as string} className="space-y-0.5">
                     <p className="text-white/40 text-xs uppercase tracking-wide">{label}</p>
                     <p className="text-white/80 font-mono text-sm">{val || <span className="text-white/20">—</span>}</p>
-                    {notice.field_sources[label?.toString().toLowerCase().replace(/\s/g, "_").replace(/\./g, "") as string] && (
-                      <span className={`rounded text-xs px-1.5 py-0.5 ${SOURCE_BADGE[notice.field_sources[label?.toString().toLowerCase().replace(/\s/g, "_").replace(/\./g, "") as string]] || "bg-white/10 text-white/40"}`}>
-                        {notice.field_sources[label?.toString().toLowerCase().replace(/\s/g, "_").replace(/\./g, "") as string]}
+                    {fsKey && notice.field_sources[fsKey as string] && (
+                      <span className={`rounded text-xs px-1.5 py-0.5 ${SOURCE_BADGE[notice.field_sources[fsKey as string]] || "bg-white/10 text-white/40"}`}>
+                        {notice.field_sources[fsKey as string]}
                       </span>
                     )}
                   </div>

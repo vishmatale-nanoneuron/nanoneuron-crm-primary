@@ -252,6 +252,42 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Pricing strip */}
+      <section aria-label="Pricing" className="px-6 py-16 border-t border-white/8">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-10">
+            <p className="text-sm uppercase tracking-widest text-emerald-400/70 mb-2">Simple Pricing</p>
+            <h2 className="text-2xl md:text-3xl font-bold">Pay via UPI — no card required</h2>
+            <p className="text-white/40 text-sm mt-2">PhonePe · GPay · Paytm · BHIM · direct bank transfer</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-5">
+            {[
+              { name: "Free", price: "₹0", period: "forever", features: ["3 report analyses/day", "Logistics + Manufacturing + Warehouse AI", "AGI reasoning chain", "Monday Morning Action Plan"], cta: "Start Free", href: "/register", highlight: false },
+              { name: "Pro", price: "₹999", period: "/month", features: ["Unlimited analyses", "GSTGuard AI (GST notice drafts)", "Benchmark comparisons", "Industry KPI tracking", "Email digest"], cta: "Pay via UPI", href: "/pricing", highlight: true },
+              { name: "Enterprise", price: "₹4,999", period: "/month", features: ["Everything in Pro", "Cross-vertical AGI brief", "Priority support", "Annual plan: ₹39,999"], cta: "Pay via UPI", href: "/pricing", highlight: false },
+            ].map((plan) => (
+              <div key={plan.name} className={`rounded-2xl border p-6 flex flex-col gap-4 ${plan.highlight ? "border-emerald-500/40 bg-emerald-500/5" : "border-white/10 bg-white/3"}`}>
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-white/40 mb-1">{plan.name}</p>
+                  <p className="text-3xl font-bold">{plan.price}<span className="text-base font-normal text-white/40">{plan.period}</span></p>
+                </div>
+                <ul className="space-y-2 flex-1">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm text-white/60">
+                      <span className="text-emerald-400 mt-0.5 shrink-0">✓</span>{f}
+                    </li>
+                  ))}
+                </ul>
+                <Link href={plan.href} className={`block text-center rounded-lg py-2.5 text-sm font-semibold transition-colors ${plan.highlight ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "border border-white/20 hover:bg-white/8 text-white/70 hover:text-white"}`}>
+                  {plan.cta}
+                </Link>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-xs text-white/25 mt-6">UPI ID: vish.matale-4@okaxis · Instant activation on payment confirmation</p>
+        </div>
+      </section>
+
       {/* CTA */}
       <section aria-label="Get started" className="px-6 py-24 border-t border-white/8">
         <div className="mx-auto max-w-3xl text-center">
@@ -265,7 +301,7 @@ export default function Home() {
           <Link href="/register" className="btn text-base px-10 py-4 inline-block">
             Start Free — No Card Required
           </Link>
-          <p className="mt-4 text-white/25 text-sm">14-day Pro trial included. Cancel anytime.</p>
+          <p className="mt-4 text-white/25 text-sm">Pro plan: ₹999/month via UPI · GSTGuard: draft GST notices in 60 seconds</p>
         </div>
       </section>
 
